@@ -1,8 +1,17 @@
-export const PIN_COLORS = [
-  "#a3591f", "#2f7d4f", "#3a6ea5", "#a3760a",
-  "#7c4fa5", "#ab3a34", "#4f8a8b", "#8a5a3a",
-];
+// Reads the --pin-N custom properties defined once in style.css (:root) —
+// that's the single source of truth for pin colors, editable there without
+// touching this file or any of its callers (week-grid blocks, month-view
+// markers, the event list's echo badge).
+const PIN_COUNT = 8;
+
+function readPinColorVars(): string[] {
+  const styles = getComputedStyle(document.documentElement);
+  return Array.from({ length: PIN_COUNT }, (_, i) => styles.getPropertyValue(`--pin-${i}`).trim());
+}
+
+let cached: string[] | null = null;
 
 export function colorForPin(pin: number): string {
-  return PIN_COLORS[pin % PIN_COLORS.length];
+  if (!cached) cached = readPinColorVars();
+  return cached[pin % cached.length];
 }

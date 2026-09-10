@@ -23,6 +23,27 @@
   --radius-md: 10px;
   --font-sans: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+
+  /* One color per actuator pin (0-7) — the single source of truth for pin
+     identity across week-grid blocks, month-view markers, and the event
+     list's echo badge (see lib/colors.ts, which reads these rather than
+     hardcoding hex values, so this is the only place to touch to restyle).
+     Deliberately loud/saturated — this is a functional identity signal,
+     not part of the muted earth-tone theme palette above — and built for
+     separability, not just "different hues": hue steps 45° apart around
+     the wheel (never adjacent pins sharing a hue neighborhood) combined
+     with alternating lightness/saturation bands, so pin N and pin N+1 are
+     never just a lighter/darker version of the same color. Same set in
+     light and dark mode — these are saturated enough to hold up on either
+     background, unlike the soft UI-chrome colors above that invert. */
+  --pin-0: #e6194b; /* red */
+  --pin-1: #3cb44b; /* green */
+  --pin-2: #4363d8; /* blue */
+  --pin-3: #f58231; /* orange */
+  --pin-4: #911eb4; /* purple */
+  --pin-5: #42d4f4; /* cyan */
+  --pin-6: #f032e6; /* magenta */
+  --pin-7: #808000; /* olive */
 }
 
 @media (prefers-color-scheme: dark) {
@@ -128,6 +149,9 @@ p {
   border-radius: var(--radius-sm);
   padding: 9px 11px;
   min-height: 40px;
+  /* >=16px is what keeps iOS Safari from auto-zooming the page on focus —
+     the body's 15px base would otherwise leak in here via inheritance. */
+  font-size: 16px;
 }
 
 .field input:disabled,
@@ -196,7 +220,9 @@ p {
   background: transparent;
   color: var(--ink-soft);
   border-color: transparent;
-  min-height: 32px;
+  /* 44px minimum touch target — was 32px, an easy miss for a thumb on the
+     compact week-prev/next arrow buttons in particular. */
+  min-height: 44px;
   padding: 6px 10px;
 }
 

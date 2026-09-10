@@ -38,6 +38,14 @@ function occursOnceOn(ev: EventDTO, iso: string): boolean {
   return ev.recurrence === "once" && ev.start_date === iso;
 }
 
+// Mirrors the backend's event_repo._occurs_on() for recurrence == "daily".
+function occursDailyOn(ev: EventDTO, iso: string): boolean {
+  if (ev.recurrence !== "daily") return false;
+  if (iso < ev.start_date) return false;
+  if (ev.end_date && iso > ev.end_date) return false;
+  return true;
+}
+
 interface WeekGridOptions {
   weekStart: Date; // any date within the target week; normalized internally
   events: EventDTO[];
@@ -169,44 +177,67 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
     dailyLane.appendChild(block);
   });
 
-  // ---------- hour rail + day columns ----------
-  const body = document.createElement("div");
-  body.className = "week-body";
+  // ---------- single-grid hour rail + day columns (one shared scroll area) ----------
+  // A single CSS Grid owns both scroll axes, with the hour rail sticky on
+  // the left and the day header sticky on top — see app.css .week-grid.
+  // That's what keeps the rail from drifting out of sync with the day
+  // columns (or getting clipped) the way the old rail+columns-in-a-flex
+  // layout with a hand-synced header row did.
+  const grid = document.createElement("div");
+  grid.className = "week-grid";
 
-  const rail = document.createElement("div");
-  rail.className = "week-hour-rail";
-  for (let h = 0; h < 24; h++) {
-    const cell = document.createElement("div");
-    cell.className = "week-hour-cell";
-    cell.textContent = `${String(h).padStart(2, "0")}:00`;
-    rail.appendChild(cell);
-  }
-
-  const columns = document.createElement("div");
-  columns.className = "week-columns";
+  const corner = document.createElement("div");
+  corner.className = "week-corner";
+  corner.style.gridColumn = "1";
+  corner.style.gridRow = "1";
+  grid.appendChild(corner);
 
   days.forEach((day, dayIdx) => {
     const iso = dayISOs[dayIdx];
-    const col = document.createElement("div");
-    col.className = "week-day-col";
-    if (iso === todayISO) col.classList.add("week-day-col-today");
-
     const header = document.createElement("div");
     header.className = "week-day-header";
+    if (iso === todayISO) header.classList.add("week-day-header-today");
+    if (dayIdx === 6) header.classList.add("week-day-header-last");
+    header.style.gridColumn = `${dayIdx + 2}`;
+    header.style.gridRow = "1";
     header.innerHTML = `<span class="week-day-name">${WEEKDAY_LABELS[dayIdx]}</span><span class="week-day-num">${day.getDate()}</span>`;
-    col.appendChild(header);
+    grid.appendChild(header);
+  });
 
-    const track = document.createElement("div");
-    track.className = "week-day-track";
-    track.style.height = `${24 * HOUR_PX}px`;
+  const tracks: HTMLDivElement[] = [];
+  for (let h = 0; h < 24; h++) {
+    const hourCell = document.createElement("div");
+    hourCell.className = "week-hour-cell";
+    hourCell.textContent = `${String(h).padStart(2, "0")}:00`;
+    hourCell.style.gridColumn = "1";
+    hourCell.style.gridRow = `${h + 2}`;
+    grid.appendChild(hourCell);
 
-    for (let h = 0; h < 24; h++) {
-      const hourCell = document.createElement("div");
-      hourCell.className = "week-hour-slot";
-      hourCell.style.height = `${HOUR_PX}px`;
-      hourCell.addEventListener("click", () => opts.onSlotClick(iso, `${String(h).padStart(2, "0")}:00:00`));
-      track.appendChild(hourCell);
-    }
+    days.forEach((_day, dayIdx) => {
+      const iso = dayISOs[dayIdx];
+      let track = tracks[dayIdx];
+      if (h === 0) {
+        track = document.createElement("div");
+        track.className = "week-day-track";
+        if (iso === todayISO) track.classList.add("week-day-col-today");
+        if (dayIdx === 6) track.classList.add("week-day-track-last");
+        track.style.gridColumn = `${dayIdx + 2}`;
+        track.style.gridRow = "2 / span 24";
+        tracks[dayIdx] = track;
+      }
+
+      const hourSlot = document.createElement("div");
+      hourSlot.className = "week-hour-slot";
+      hourSlot.style.height = `${HOUR_PX}px`;
+      hourSlot.addEventListener("click", () => opts.onSlotClick(iso, `${String(h).padStart(2, "0")}:00:00`));
+      tracks[dayIdx].appendChild(hourSlot);
+    });
+  }
+  tracks.forEach((track) => grid.appendChild(track));
+
+  days.forEach((_day, dayIdx) => {
+    const iso = dayISOs[dayIdx];
+    const track = tracks[dayIdx];
 
     onceEvents
       .filter((ev) => occursOnceOn(ev, iso))
@@ -225,23 +256,93 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
         block.textContent = ev.label ?? `Pin ${ev.pin}`;
         block.title = `${ev.label ?? `Pin ${ev.pin}`} · ${ev.on_time}–${ev.off_time}`;
 
-        attachOnceDrag(block, ev, dayIdx, top, track, columns, dayISOs, durS, opts, showTransientError);
+        attachOnceDrag(block, ev, dayIdx, top, track, grid, dayISOs, durS, opts, showTransientError);
 
         track.appendChild(block);
       });
 
-    col.appendChild(track);
-    columns.appendChild(col);
+    // Daily events get the same at-time-of-day block as "once" events, so
+    // their schedule is visible in the hourly grid on every day they occur
+    // — not just in the daily lane's day-range strip above the grid. They
+    // are click-to-edit only, not draggable here: dragging one instance
+    // would only make sense as "move just this day", but a daily event's
+    // time is the same every day it recurs, so there's no single day to
+    // drag — dayISOs and the recurrence range are edited in the drawer, and
+    // dragging within the day-range strip already covers "move which days".
+    dailyEvents
+      .filter((ev) => occursDailyOn(ev, iso))
+      .forEach((ev) => {
+        const onS = toSeconds(ev.on_time);
+        const durS = durationSeconds(ev.on_time, ev.off_time);
+        const top = (onS / 3600) * HOUR_PX;
+        const height = Math.max((durS / 3600) * HOUR_PX, MIN_BLOCK_PX);
+
+        const block = document.createElement("div");
+        block.className = "week-block week-block-daily";
+        if (!ev.enabled) block.classList.add("week-block-disabled");
+        block.style.top = `${top}px`;
+        block.style.height = `${height}px`;
+        block.style.background = colorForPin(ev.pin);
+        block.textContent = ev.label ?? `Pin ${ev.pin}`;
+        block.title = `${ev.label ?? `Pin ${ev.pin}`} · daily · ${ev.on_time}–${ev.off_time}`;
+        block.addEventListener("click", () => opts.onEventClick(ev));
+
+        track.appendChild(block);
+      });
   });
 
-  body.append(rail, columns);
-  wrap.append(nav, errorBanner, dailyLane, body);
+  // ---------- current-time line ----------
+  // Shown whenever today is in the visible week, regardless of whether
+  // there are any events — it's the user's reference point for "when is
+  // now" so they can eyeball how far off the next scheduled event is.
+  if (dayISOs.includes(todayISO)) {
+    const todayTrack = tracks[dayISOs.indexOf(todayISO)];
+    const nowLine = document.createElement("div");
+    nowLine.className = "week-now-line";
+    const nowLabel = document.createElement("span");
+    nowLabel.className = "week-now-label";
+    nowLine.appendChild(nowLabel);
+    todayTrack.appendChild(nowLine);
+
+    function positionNowLine(): void {
+      const now = new Date();
+      const nowSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+      nowLine.style.top = `${(nowSeconds / 3600) * HOUR_PX}px`;
+      nowLabel.textContent = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    }
+    positionNowLine();
+
+    // Stops itself once this grid instance is no longer in the document —
+    // renderWeekGrid rebuilds the whole subtree on every re-render, so each
+    // call's interval must not keep ticking against detached nodes.
+    const nowLineIntervalId = setInterval(() => {
+      if (!nowLine.isConnected) {
+        clearInterval(nowLineIntervalId);
+        return;
+      }
+      positionNowLine();
+    }, 30_000);
+  }
+
+  // First-time-user hint: renderList() already has an explicit empty
+  // message ("No events scheduled yet…"), but the hourly grid gave no clue
+  // beyond a hover cursor that clicking an hour creates an event there.
+  if (onceEvents.length === 0 && dailyEvents.length === 0) {
+    const emptyHint = document.createElement("div");
+    emptyHint.className = "week-empty-hint";
+    emptyHint.textContent = "No events this week — click any hour to add one.";
+    grid.appendChild(emptyHint);
+  }
+
+  wrap.append(nav, errorBanner, dailyLane, grid);
   root.appendChild(wrap);
 
   // Scroll to a sensible starting hour rather than midnight.
   const initialHour = dayISOs.includes(todayISO) ? new Date().getHours() : 7;
-  body.scrollTop = Math.max(0, initialHour - 1) * HOUR_PX;
+  grid.scrollTop = Math.max(0, initialHour - 1) * HOUR_PX;
 }
+
+const HOUR_RAIL_PX = 52;
 
 function attachOnceDrag(
   block: HTMLDivElement,
@@ -249,7 +350,7 @@ function attachOnceDrag(
   dayIdx: number,
   originalTop: number,
   track: HTMLElement,
-  columns: HTMLElement,
+  grid: HTMLElement,
   dayISOs: string[],
   durationS: number,
   opts: WeekGridOptions,
@@ -263,7 +364,7 @@ function attachOnceDrag(
     let dragged = false;
     let dayDelta = 0;
     let pxDelta = 0;
-    const dayWidth = columns.clientWidth / 7 || 100;
+    const dayWidth = (grid.clientWidth - HOUR_RAIL_PX) / 7 || 100;
 
     function onMove(moveEv: PointerEvent): void {
       const dx = moveEv.clientX - startX;
@@ -289,12 +390,14 @@ function attachOnceDrag(
 
       const newTargetDayIdx = Math.min(6, Math.max(0, dayIdx + dayDelta));
       const newTop = Math.max(0, originalTop + pxDelta);
-      const newOnSeconds = Math.round((newTop / HOUR_PX) * 3600);
+      // Clamp so ON+duration can't cross midnight — events are same-day only.
+      const maxOnSeconds = Math.max(0, 86400 - durationS);
+      const newOnSeconds = Math.min(Math.round((newTop / HOUR_PX) * 3600), maxOnSeconds);
       const newOnTime = secondsToHHMMSS(newOnSeconds);
       const newOffTime = secondsToHHMMSS(newOnSeconds + durationS);
 
-      if (durationSeconds(newOnTime, newOffTime) < MIN_DURATION_SECONDS) {
-        showTransientError(`ON/OFF must be at least ${MIN_DURATION_SECONDS} seconds apart.`);
+      if (newOffTime <= newOnTime || durationSeconds(newOnTime, newOffTime) < MIN_DURATION_SECONDS) {
+        showTransientError(`ON/OFF must be at least ${MIN_DURATION_SECONDS} seconds apart, same day.`);
         return;
       }
 

@@ -13,7 +13,6 @@ const STORAGE_KEY = "mesh-scheduler-lang";
 const dict = {
   es: {
     appName: "Programador de Actuadores",
-    calendar: "Calendario",
     week: "Semana",
     month: "Mes",
     today: "Hoy",
@@ -102,7 +101,6 @@ const dict = {
   },
   en: {
     appName: "Actuator Scheduler",
-    calendar: "Calendar",
     week: "Week",
     month: "Month",
     today: "Today",

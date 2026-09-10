@@ -47,8 +47,7 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
   shell.innerHTML = `
     <header class="app-header">
       <div class="app-header-title">
-        <span class="app-header-eyebrow">${t("appName")}</span>
-        <h1>${t("calendar")}</h1>
+        <h1>${t("appName")}</h1>
       </div>
       <div class="app-header-status">
         <button type="button" class="mesh-status mesh-status-unknown" role="status" aria-live="polite" aria-label="${t("checkingMesh")}" title="${t("checkingMesh")} — ${t("checkNow")}">

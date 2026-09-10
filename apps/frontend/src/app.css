@@ -105,18 +105,6 @@
   overflow: hidden;
 }
 
-.app-header-eyebrow {
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--accent);
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .app-header-title h1 {
   font-size: 1.25rem;
   margin-top: 2px;
@@ -265,13 +253,21 @@
   flex-shrink: 0;
 }
 
-/* Mobile: the full desktop row (eyebrow+title, full-text status pill,
-   username, standalone language toggle, standalone logout button) is too
-   much for a phone-width header — collapses to status icon + one overflow
-   menu holding everything else. Desktop above this breakpoint is
-   untouched. */
+/* Mobile: the full-text status pill, username, and standalone
+   language/logout buttons are too much for a phone-width header —
+   collapse into status icon + one overflow menu holding everything else.
+   The app name/title stays visible (truncated if needed), just shrunk
+   down a size — desktop above this breakpoint is untouched either way. */
 @media (max-width: 640px) {
-  .app-header-title,
+  .app-header-title {
+    min-width: 0;
+    flex-shrink: 1;
+  }
+
+  .app-header-title h1 {
+    font-size: 1rem;
+  }
+
   .app-header-user,
   .mesh-status-label,
   .lang-toggle-desktop,
@@ -285,10 +281,12 @@
     height: 32px;
     justify-content: center;
     border-radius: 50%;
+    flex-shrink: 0;
   }
 
   .app-menu {
     display: block;
+    flex-shrink: 0;
   }
 }
 

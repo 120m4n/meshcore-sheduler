@@ -15,7 +15,10 @@ dist_pi/
 downloads/
 eggs/
 .eggs/
-lib/
+# Python's build-output lib/ — scoped to the repo root and apps/backend so
+# it doesn't also match apps/frontend/src/lib/, which is real TS source.
+/lib/
+apps/backend/lib/
 lib64/
 parts/
 sdist/

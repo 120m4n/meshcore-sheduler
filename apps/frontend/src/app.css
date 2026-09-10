@@ -680,11 +680,33 @@
 }
 
 .event-row-date {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
   font-size: 0.76rem;
   color: var(--ink-soft);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   flex-shrink: 0;
+}
+
+/* Soonest-upcoming event: a subtle left accent plus the relative-time
+   badge, so the operator can spot "what fires next" without reading every
+   row's absolute date. */
+.event-row-next {
+  border-color: var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.event-row-badge {
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
 }
 
 .loading-block {

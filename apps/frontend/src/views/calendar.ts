@@ -2,10 +2,12 @@ import { ApiError, createEvent, deleteEvent, fetchEvents, fetchHealth, logout, u
 import { renderCalendarGrid } from "../components/calendar-grid";
 import { renderEventDrawer } from "../components/event-drawer";
 import { renderWeekGrid } from "../components/week-grid";
-import { addSeconds, DEFAULT_GAP_SECONDS } from "../lib/duration";
+import { addSecondsClamped, DEFAULT_GAP_SECONDS } from "../lib/duration";
+import { formatRelative, nextOnOccurrence } from "../lib/next-occurrence";
 import type { EventDTO, EventInput } from "../types";
 
 const HEALTH_POLL_MS = 30_000;
+const RELATIVE_TIME_REFRESH_MS = 30_000;
 type CalTab = "week" | "month";
 
 interface CalendarViewOptions {
@@ -22,6 +24,7 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
   let tab: CalTab = "week";
   let events: EventDTO[] = [];
   let healthPollId: ReturnType<typeof setInterval> | null = null;
+  let relativeTimeRefreshId: ReturnType<typeof setInterval> | null = null;
 
   const shell = document.createElement("div");
   shell.className = "app-shell";
@@ -78,6 +81,7 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
       await logout();
     } finally {
       if (healthPollId) clearInterval(healthPollId);
+      if (relativeTimeRefreshId) clearInterval(relativeTimeRefreshId);
       opts.onLoggedOut();
     }
   });
@@ -151,7 +155,7 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
         weekCursor = new Date();
         renderGrid();
       },
-      onSlotClick: (iso, hhmmss) => openDrawer(iso, null, hhmmss, addSeconds(hhmmss, DEFAULT_GAP_SECONDS)),
+      onSlotClick: (iso, hhmmss) => openDrawer(iso, null, hhmmss, addSecondsClamped(hhmmss, DEFAULT_GAP_SECONDS)),
       onEventClick: (ev) => openDrawer(ev.start_date, ev),
       onMove: handleMove,
     });
@@ -167,12 +171,34 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
       return;
     }
 
+    const now = new Date();
+    const nextOccurrences = new Map(events.map((ev) => [ev.id, nextOnOccurrence(ev, now)]));
+
+    // The single soonest-upcoming event gets the relative-time badge — the
+    // one an operator most needs to notice at a glance, not every future
+    // event (which would be noisy and stale within minutes).
+    let soonestId: string | null = null;
+    let soonestAt: Date | null = null;
+    for (const [id, at] of nextOccurrences) {
+      if (at && (!soonestAt || at < soonestAt)) {
+        soonestId = id;
+        soonestAt = at;
+      }
+    }
+
     const sorted = [...events].sort((a, b) => a.start_date.localeCompare(b.start_date));
     sorted.forEach((ev) => {
       const row = document.createElement("button");
       row.type = "button";
       row.className = "event-row";
       if (!ev.enabled) row.classList.add("event-row-disabled");
+      if (ev.id === soonestId) row.classList.add("event-row-next");
+
+      const badge =
+        ev.id === soonestId && soonestAt
+          ? `<span class="event-row-badge">${escapeHtml(formatRelative(soonestAt, now))}</span>`
+          : "";
+
       row.innerHTML = `
         <div class="event-row-main">
           <span class="event-row-label">${ev.label ? escapeHtml(ev.label) : `Pin ${ev.pin}`}</span>
@@ -180,7 +206,7 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
             ev.recurrence === "daily" ? " · Daily" : " · Once"
           }</span>
         </div>
-        <div class="event-row-date">${ev.start_date}${ev.end_date ? ` → ${ev.end_date}` : ""}</div>
+        <div class="event-row-date">${badge}${ev.start_date}${ev.end_date ? ` → ${ev.end_date}` : ""}</div>
       `;
       row.addEventListener("click", () => openDrawer(ev.start_date, ev));
       listEl.appendChild(row);
@@ -196,6 +222,7 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
     renderEventDrawer(drawerRoot, {
       date: dateISO,
       existing,
+      existingEvents: events,
       prefillOn,
       prefillOff,
       onSave: async (input) => {
@@ -254,6 +281,10 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
 
   pollHealth();
   healthPollId = setInterval(pollHealth, HEALTH_POLL_MS);
+
+  // Keeps the "in N min" badge on the list from going stale — renderList()
+  // alone (no data fetch) is cheap enough to run on a timer.
+  relativeTimeRefreshId = setInterval(renderList, RELATIVE_TIME_REFRESH_MS);
 
   loadEvents();
 }

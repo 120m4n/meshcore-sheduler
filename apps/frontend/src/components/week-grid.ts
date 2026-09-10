@@ -1,5 +1,6 @@
 import { colorForPin } from "../lib/colors";
 import { durationSeconds, MIN_DURATION_SECONDS } from "../lib/duration";
+import { ICON_CHEVRON_LEFT, ICON_CHEVRON_RIGHT } from "../lib/icons";
 import type { EventDTO } from "../types";
 
 const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -120,12 +121,12 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
   nav.className = "cal-nav";
   const weekLabel = `${days[0].toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${days[6].toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
   nav.innerHTML = `
-    <button type="button" class="btn btn-ghost week-prev" aria-label="${isCompact ? "Previous day" : "Previous week"}">&larr;</button>
+    <button type="button" class="btn btn-ghost nav-arrow week-prev" aria-label="${isCompact ? "Previous day" : "Previous week"}">${ICON_CHEVRON_LEFT}</button>
     <div class="week-nav-center">
       <h2 class="cal-month-label">${isCompact ? "" : weekLabel}</h2>
       <button type="button" class="btn btn-ghost btn-sm week-today">Today</button>
     </div>
-    <button type="button" class="btn btn-ghost week-next" aria-label="${isCompact ? "Next day" : "Next week"}">&rarr;</button>
+    <button type="button" class="btn btn-ghost nav-arrow week-next" aria-label="${isCompact ? "Next day" : "Next week"}">${ICON_CHEVRON_RIGHT}</button>
   `;
   const navLabel = nav.querySelector<HTMLHeadingElement>(".cal-month-label")!;
   const prevBtn = nav.querySelector<HTMLButtonElement>(".week-prev")!;

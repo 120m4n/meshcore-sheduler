@@ -1,4 +1,5 @@
 import { colorForPin } from "../lib/colors";
+import { ICON_CHEVRON_LEFT, ICON_CHEVRON_RIGHT } from "../lib/icons";
 import type { EventDTO } from "../types";
 
 const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -40,9 +41,9 @@ export function renderCalendarGrid(root: HTMLElement, opts: CalendarGridOptions)
     year: "numeric",
   });
   nav.innerHTML = `
-    <button type="button" class="btn btn-ghost cal-prev" aria-label="Previous month">&larr;</button>
+    <button type="button" class="btn btn-ghost nav-arrow cal-prev" aria-label="Previous month">${ICON_CHEVRON_LEFT}</button>
     <h2 class="cal-month-label">${monthLabel}</h2>
-    <button type="button" class="btn btn-ghost cal-next" aria-label="Next month">&rarr;</button>
+    <button type="button" class="btn btn-ghost nav-arrow cal-next" aria-label="Next month">${ICON_CHEVRON_RIGHT}</button>
   `;
   nav.querySelector(".cal-prev")!.addEventListener("click", onPrevMonth);
   nav.querySelector(".cal-next")!.addEventListener("click", onNextMonth);

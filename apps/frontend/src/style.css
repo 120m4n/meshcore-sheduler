@@ -226,6 +226,29 @@ p {
   padding: 6px 10px;
 }
 
+/* Week/month prev-next controls: a real icon button (circular hit area,
+   visible hover/active state) instead of a bare arrow glyph floating in
+   the toolbar with nothing to mark it as clickable. */
+.nav-arrow {
+  width: 44px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.nav-arrow svg {
+  width: 20px;
+  height: 20px;
+}
+
+.nav-arrow:hover {
+  background: var(--bg-sunken);
+  color: var(--ink);
+}
+
+.nav-arrow:active {
+  background: var(--border);
+}
+
 .error-text {
   color: var(--bad);
   font-size: 0.86rem;

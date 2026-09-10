@@ -3,6 +3,7 @@ import { renderCalendarGrid } from "../components/calendar-grid";
 import { renderEventDrawer } from "../components/event-drawer";
 import { renderWeekGrid } from "../components/week-grid";
 import { addSecondsClamped, DEFAULT_GAP_SECONDS } from "../lib/duration";
+import { ICON_REFRESH } from "../lib/icons";
 import { formatRelative, nextOnOccurrence } from "../lib/next-occurrence";
 import type { ActuatorPinState, EventDTO, EventInput } from "../types";
 
@@ -51,7 +52,7 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
         <span class="mesh-status mesh-status-unknown" role="status" aria-live="polite">
           <span class="mesh-dot"></span>
           <span class="mesh-status-label">Checking mesh…</span>
-          <button type="button" class="mesh-status-refresh" aria-label="Check mesh connection now" title="Check now">&#8635;</button>
+          <button type="button" class="mesh-status-refresh" aria-label="Check mesh connection now" title="Check now">${ICON_REFRESH}</button>
         </span>
         <span class="app-header-user">${opts.user}</span>
         <button type="button" class="btn btn-secondary app-logout">Log out</button>

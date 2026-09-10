@@ -192,9 +192,12 @@
   width: 28px;
   height: 28px;
   color: inherit;
-  font-size: 0.9rem;
-  line-height: 1;
   border-radius: 50%;
+}
+
+.mesh-status-refresh svg {
+  width: 15px;
+  height: 15px;
 }
 
 .mesh-status-refresh:hover:not(:disabled) {
@@ -847,7 +850,11 @@
 .drawer-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.35);
+  /* Darker + blurred, not just a thin tint — on a phone the drawer fills
+     the whole screen, so a faint overlay leaves nothing behind it to read
+     as "the app is still there, underneath a panel." */
+  background: rgba(10, 9, 7, 0.55);
+  backdrop-filter: blur(2px);
   display: flex;
   justify-content: flex-end;
   z-index: 50;
@@ -858,20 +865,21 @@
   max-width: 420px;
   height: 100%;
   background: var(--bg-raised);
-  box-shadow: var(--shadow-md);
-  padding: 24px;
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.25);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 4px;
 }
 
 .drawer-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  padding: 18px 24px;
+  background: var(--bg-sunken);
+  border-bottom: 1px solid var(--border-strong);
 }
+
 
 .drawer-header h2 {
   font-size: 1.2rem;
@@ -881,20 +889,29 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.3rem;
-  line-height: 1;
   /* border-box means width/height are the actual tap target, not just the
      glyph's own box — 44px meets the touch-target minimum. */
   width: 44px;
   height: 44px;
   min-height: unset;
+  border-radius: 50%;
+  color: var(--bad);
+}
+
+.drawer-close svg {
+  width: 20px;
+  height: 20px;
+}
+
+.drawer-close:hover {
+  background: var(--bad-soft);
 }
 
 .drawer-form {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  margin-top: 8px;
+  padding: 20px 24px 24px;
 }
 
 .field-row {

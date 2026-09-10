@@ -1,4 +1,5 @@
 import { addSecondsClamped, durationSeconds, MIN_DURATION_SECONDS, WARN_DURATION_SECONDS } from "../lib/duration";
+import { ICON_CLOSE } from "../lib/icons";
 import { describeEvent, findOverlap } from "../lib/overlap";
 import type { EventDTO, EventInput, Recurrence } from "../types";
 
@@ -35,7 +36,7 @@ export function renderEventDrawer(root: HTMLElement, opts: EventDrawerOptions): 
   drawer.innerHTML = `
     <div class="drawer-header">
       <h2 id="drawer-title">${existing ? "Edit event" : "New event"}</h2>
-      <button type="button" class="btn btn-ghost drawer-close" aria-label="Close">&times;</button>
+      <button type="button" class="btn btn-ghost drawer-close" aria-label="Close">${ICON_CLOSE}</button>
     </div>
     <form class="drawer-form">
       <div class="field">

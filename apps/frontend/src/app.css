@@ -185,8 +185,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  /* box-sizing: border-box (global) means width/height include padding, so
+     this is a 44px tap target with a small centered glyph, not a 16px one
+     — a 16px box would be an easy miss on a touchscreen. */
+  width: 44px;
+  height: 44px;
+  margin: -14px;
   color: inherit;
   font-size: 0.9rem;
   line-height: 1;
@@ -269,7 +273,7 @@
 }
 
 .btn-sm {
-  min-height: 30px;
+  min-height: 44px;
   padding: 5px 10px;
   font-size: 0.78rem;
 }
@@ -836,9 +840,15 @@
 }
 
 .drawer-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 1.3rem;
   line-height: 1;
-  padding: 4px 8px;
+  /* border-box means width/height are the actual tap target, not just the
+     glyph's own box — 44px meets the touch-target minimum. */
+  width: 44px;
+  height: 44px;
   min-height: unset;
 }
 

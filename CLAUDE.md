@@ -82,3 +82,7 @@ Before landing a fix, ask: does this solve the problem but make the code and fut
 ## General rule: comments must earn their place
 
 Before adding a comment, ask: does this tell the reader something the code doesn't already say by itself? If a comment just restates what the next line does, don't add it — well-named functions/variables and straightforward code are self-explanatory. Only write a comment for the non-obvious *why*: a hidden constraint, a workaround for a specific bug, a decision that would surprise someone reading cold.
+
+## General rule: testing mobile layout means real device emulation, not window resize
+
+`resize_window` (or any plain browser-window resize) only changes the desktop window's pixel dimensions — it does not change `window.matchMedia('(pointer: coarse)')`, the reported user-agent, or device pixel ratio, and it can silently disagree with `window.innerWidth` depending on the OS's display scaling (already bit this project once: a `resize_window(375, 812)` call produced an `innerWidth` of 412, not 375). None of that is what a phone actually reports. When a change needs verifying on mobile, use Chrome DevTools' real device emulation (device toolbar / "Toggle device toolbar", picking an actual device profile) — that's what it exists for — not a resized desktop window standing in for a phone.

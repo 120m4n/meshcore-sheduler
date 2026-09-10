@@ -39,6 +39,10 @@ class EventCreate(BaseModel):
         # here too so a bad request 422s with a clear message instead of
         # reaching the repository at all. The repository check remains the
         # real guarantee (see UX proposal §05); this is the fast path.
+        # WARN_DURATION_SECONDS is intentionally not enforced here — a long
+        # duration is a client-side warning, not a rejected request.
+        if self.off_time <= self.on_time:
+            raise ValueError("OFF time must be after ON time (events can't cross midnight)")
         if duration_seconds(self.on_time, self.off_time) < MIN_DURATION_SECONDS:
             raise ValueError(f"ON/OFF must be at least {MIN_DURATION_SECONDS} seconds apart")
         return self

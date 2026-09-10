@@ -1,5 +1,7 @@
 import logging
+import time
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy.orm import Session
@@ -14,15 +16,30 @@ TICK_SECONDS = 60
 # never lets an instant fall through the gap between two windows.
 WINDOW = timedelta(seconds=TICK_SECONDS + 5)
 
+# Active PIN_STATUS refresh: only sent when BOTH the last known state is
+# stale AND nothing is about to fire on its own to refresh it for free.
+# Keeps a shared LoRa channel from being polled continuously — a channel
+# with events happening at least once an hour never needs this at all.
+STATE_CHECK_STALE_AFTER = timedelta(minutes=60)
+STATE_CHECK_SKIP_IF_EVENT_WITHIN = timedelta(minutes=60)
+
 
 def _actuator_message(pin: int, edge: str) -> str:
     return f"PIN{pin}_{'ON' if edge == 'on' else 'OFF'}"
 
 
-async def run_tick(session_factory, gateway: MeshGateway) -> None:
+async def run_tick(session_factory, gateway: MeshGateway, tz: ZoneInfo) -> None:
     db: Session = session_factory()
     try:
-        due = event_repo.list_due(db, datetime.utcnow(), WINDOW)
+        # on_time/off_time are stored and edited as wall-clock times in the
+        # single fixed TZ from settings (gap register §8.5) — comparing
+        # against datetime.utcnow() here would silently never match outside
+        # UTC+0. list_due() itself is timezone-agnostic; it just needs `now`
+        # in the same reference frame as the stored times, so this strips
+        # tzinfo after localizing rather than passing an aware datetime.
+        now_local = datetime.now(tz).replace(tzinfo=None)
+        due = event_repo.list_due(db, now_local, WINDOW)
+        next_at = event_repo.next_instant(db, now_local)
     finally:
         db.close()
 
@@ -42,14 +59,40 @@ async def run_tick(session_factory, gateway: MeshGateway) -> None:
         except Exception:
             logger.exception("failed to fire %s for event %s — no catch-up, next tick moves on", msg, event.id)
 
+    await _maybe_refresh_actuator_state(gateway, next_at, now_local)
 
-def start_scheduler(session_factory, gateway: MeshGateway) -> AsyncIOScheduler:
+
+async def _maybe_refresh_actuator_state(
+    gateway: MeshGateway, next_at: datetime | None, now_local: datetime
+) -> None:
+    """Actively refresh actuator_state via PIN_STATUS only when the last
+    known reading is stale AND nothing scheduled will refresh it for free
+    within STATE_CHECK_SKIP_IF_EVENT_WITHIN — an event about to fire
+    already produces a real echo, so forcing a check too is redundant load
+    on a shared LoRa channel."""
+    last_check = gateway.last_state_check_at
+    if last_check is not None:
+        stale_for = time.monotonic() - last_check
+        if stale_for < STATE_CHECK_STALE_AFTER.total_seconds():
+            return
+
+    if next_at is not None and (next_at - now_local) < STATE_CHECK_SKIP_IF_EVENT_WITHIN:
+        return
+
+    try:
+        await gateway.request_pin_status()
+        logger.info("sent active PIN_STATUS refresh (stale actuator_state, no event due soon)")
+    except Exception:
+        logger.exception("active PIN_STATUS refresh failed")
+
+
+def start_scheduler(session_factory, gateway: MeshGateway, tz: ZoneInfo) -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler()
     scheduler.add_job(
         run_tick,
         "interval",
         seconds=TICK_SECONDS,
-        args=[session_factory, gateway],
+        args=[session_factory, gateway, tz],
         id="mesh-event-ticker",
         max_instances=1,
         coalesce=True,

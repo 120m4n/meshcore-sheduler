@@ -21,11 +21,21 @@ T = TypeVar("T")
 # own schedule, e.g. "Rtp-02-switch: PIN0=ON STATE=b10000000" arriving some
 # time after the send, not correlated 1:1 to a specific send call. So this
 # gateway does NOT try to match "this echo answers that send" — it runs a
-# permanent background listener that keeps the last-observed state per PIN,
-# and callers read that state independently of when/whether they sent
-# anything. "The command went out" (send_channel succeeded) and "the
-# actuator's reported state reflects it" are two separate, unlinked facts.
-_ECHO_RE = re.compile(r"^(?P<node>[^:]+):\s*PIN(?P<pin>\d+)=(?P<state>ON|OFF)\b")
+# permanent background listener that keeps the last-observed state, and
+# callers read that state independently of when/whether they sent anything.
+# "The command went out" (send_channel succeeded) and "the actuator's
+# reported state reflects it" are two separate, unlinked facts.
+#
+# The channel is shared — other nodes/companions can also send PINx_ON/OFF
+# or PIN_STATUS to this same actuator, and it always answers with its full
+# STATE=b<8 bits> snapshot regardless of who asked or what triggered it.
+# That field, not the PINn= prefix (which is absent from a PIN_STATUS
+# response — confirmed against real hardware: "Rtp-02-switch:
+# STATE=b00000000"), is the only real source of truth for all 8 pins at
+# once. Bit order confirmed against hardware too: PIN3_ON produced
+# "PIN3=ON STATE=b00010000" — the most-significant bit (leftmost, index 0)
+# is pin 0, descending left to right.
+_STATE_RE = re.compile(r"^(?P<node>[^:]+):.*\bSTATE=b(?P<bits>[01]{8})\b")
 
 
 @dataclass
@@ -65,6 +75,9 @@ class MeshGateway:
         self._worker_task: asyncio.Task | None = None
         self._echo_subscription = None
         self._actuator_state: dict[int, ActuatorState] = {}
+        # Set once per STATE= message (all 8 pins update together from one
+        # message), not per pin — see _on_channel_message.
+        self._last_state_check_at: float | None = None
 
     async def start(self) -> None:
         self._mc = await MeshCore.create_serial(
@@ -90,6 +103,13 @@ class MeshGateway:
 
         logger.info("mesh gateway started on %s", self._port)
 
+        # Prime actuator_state with a real reading right away instead of
+        # leaving it empty until some other node happens to trigger an echo.
+        try:
+            await self.request_pin_status()
+        except Exception:
+            logger.exception("initial PIN_STATUS request failed — actuator_state starts empty")
+
     async def stop(self) -> None:
         if self._echo_subscription is not None:
             self._echo_subscription.unsubscribe()
@@ -108,29 +128,48 @@ class MeshGateway:
         if payload.get("channel_idx") != self._channel_idx:
             return
         text = payload.get("text", "")
-        m = _ECHO_RE.match(text)
+        m = _STATE_RE.match(text)
         if not m:
             return
-        # Other nodes may share this channel — only trust echoes attributed
-        # to the configured actuator's node name.
+        # Other nodes may share this channel — only trust state reports
+        # attributed to the configured actuator's node name.
         if m.group("node") != self._actuator_name:
             return
-        pin = int(m.group("pin"))
-        self._actuator_state[pin] = ActuatorState(
-            pin=pin, state=m.group("state"), raw=text, observed_at=time.monotonic()
-        )
-        logger.info("actuator state update: PIN%d=%s (%s)", pin, m.group("state"), m.group("node"))
+        now = time.monotonic()
+        bits = m.group("bits")
+        for pin, bit in enumerate(bits):
+            self._actuator_state[pin] = ActuatorState(
+                pin=pin, state="ON" if bit == "1" else "OFF", raw=text, observed_at=now
+            )
+        self._last_state_check_at = now
+        logger.info("actuator state update: STATE=b%s (%s)", bits, m.group("node"))
 
     def get_actuator_state(self, pin: int) -> ActuatorState | None:
         """Last state this gateway has observed for `pin`, or None if no
-        echo has ever been seen for it. Not correlated to any particular
-        send — the actuator reports on its own schedule."""
+        STATE= report has ever been seen. Not correlated to any particular
+        send — the actuator reports on its own schedule, and any node on
+        the shared channel (not just this process) can trigger one."""
         return self._actuator_state.get(pin)
 
     @property
     def actuator_states(self) -> dict[int, ActuatorState]:
-        """Snapshot of last-observed state for every PIN seen so far."""
+        """Snapshot of last-observed state for every PIN seen so far. All 8
+        pins populate together from a single STATE= message, so in practice
+        this is either empty (nothing seen yet) or has all 8 entries."""
         return dict(self._actuator_state)
+
+    @property
+    def last_state_check_at(self) -> float | None:
+        """time.monotonic() of the most recent STATE= message (echo or
+        PIN_STATUS response), or None if none has been seen yet."""
+        return self._last_state_check_at
+
+    async def request_pin_status(self) -> None:
+        """Actively ask the actuator to report STATE= right now, rather
+        than waiting for an incidental echo. Fire-and-forget like
+        send_channel — the response (if/when it arrives) comes back through
+        the same permanent listener as any other channel message."""
+        await self.send_channel("PIN_STATUS")
 
     async def _worker(self) -> None:
         while True:

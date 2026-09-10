@@ -7,6 +7,30 @@ const HOUR_PX = 64;
 const MIN_BLOCK_PX = 18;
 const SNAP_MINUTES = 5;
 
+// Drag-to-reschedule is a mouse-precision interaction — on a touchscreen,
+// touch-action: none (needed so a drag doesn't also scroll the page) means
+// starting a scroll gesture with a finger on an event block hijacks it into
+// an accidental drag instead, in columns that are already narrow on a
+// small phone. Coarse-pointer devices get tap-to-open instead: no drag
+// listeners attached at all, so there's no gesture to conflict with native
+// scroll. Read once at module load (not per-render) since a device's
+// pointer type doesn't change over a session.
+const IS_COARSE_POINTER = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
+
+// Below this width, 7 fixed-width day columns don't fit a phone screen —
+// forcing dense horizontal scroll instead of the vertical one users expect.
+// Same breakpoint already used elsewhere (app.css) for other mobile
+// collapses, kept in sync here rather than introducing a new number.
+const COMPACT_WIDTH_PX = 640;
+
+// Re-read per render (renderWeekGrid rebuilds the whole subtree on every
+// call anyway — on tab switch, event save, day/month nav — so there's no
+// need for a live resize listener; the next render already picks up a
+// changed window size).
+function isCompactViewport(): boolean {
+  return typeof window !== "undefined" && window.innerWidth < COMPACT_WIDTH_PX;
+}
+
 function toISODate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
@@ -67,6 +91,14 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
   const dayISOs = days.map(toISODate);
   const todayISO = toISODate(new Date());
 
+  // Compact mode shows one day's column at a time instead of all 7 — see
+  // isCompactViewport(). The full week is still computed above (needed to
+  // filter events correctly either way); this only changes what the hourly
+  // grid renders and how day-to-day navigation works within it.
+  const isCompact = isCompactViewport();
+  const todayIdxInWeek = dayISOs.indexOf(todayISO);
+  let visibleDayIdx = todayIdxInWeek >= 0 ? todayIdxInWeek : 0;
+
   const onceEvents = opts.events.filter((ev) => ev.recurrence === "once" && dayISOs.includes(ev.start_date));
   const dailyEvents = opts.events.filter((ev) => {
     if (ev.recurrence !== "daily") return false;
@@ -126,53 +158,58 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
     block.textContent = `${ev.label ?? `Pin ${ev.pin}`} · daily · ${ev.on_time}–${ev.off_time}`;
     block.title = `${ev.label ?? `Pin ${ev.pin}`} · daily from ${ev.start_date}${ev.end_date ? ` to ${ev.end_date}` : ""}`;
 
-    let dragged = false;
-    block.addEventListener("pointerdown", (downEv) => {
-      downEv.preventDefault();
-      const startX = downEv.clientX;
-      dragged = false;
-      let dayDelta = 0;
-      const dayWidth = block.parentElement!.clientWidth / 7 || 100;
+    if (IS_COARSE_POINTER) {
+      block.classList.add("week-block-tap-only");
+      block.addEventListener("click", () => opts.onEventClick(ev));
+    } else {
+      let dragged = false;
+      block.addEventListener("pointerdown", (downEv) => {
+        downEv.preventDefault();
+        const startX = downEv.clientX;
+        dragged = false;
+        let dayDelta = 0;
+        const dayWidth = block.parentElement!.clientWidth / 7 || 100;
 
-      function onMove(moveEv: PointerEvent): void {
-        const dx = moveEv.clientX - startX;
-        const newDelta = Math.round(dx / dayWidth);
-        if (newDelta !== dayDelta) {
-          dayDelta = newDelta;
-          dragged = true;
-        }
-        block.style.transform = `translateX(${dayDelta * dayWidth}px)`;
-        block.classList.toggle("week-block-dragging", dragged);
-      }
-
-      async function onUp(): Promise<void> {
-        window.removeEventListener("pointermove", onMove);
-        window.removeEventListener("pointerup", onUp);
-        block.style.transform = "";
-        block.classList.remove("week-block-dragging");
-
-        if (!dragged || dayDelta === 0) {
-          if (!dragged) opts.onEventClick(ev);
-          return;
+        function onMove(moveEv: PointerEvent): void {
+          const dx = moveEv.clientX - startX;
+          const newDelta = Math.round(dx / dayWidth);
+          if (newDelta !== dayDelta) {
+            dayDelta = newDelta;
+            dragged = true;
+          }
+          block.style.transform = `translateX(${dayDelta * dayWidth}px)`;
+          block.classList.toggle("week-block-dragging", dragged);
         }
 
-        const newStart = addDays(new Date(`${ev.start_date}T00:00:00`), dayDelta);
-        const newEnd = ev.end_date ? addDays(new Date(`${ev.end_date}T00:00:00`), dayDelta) : null;
-        try {
-          await opts.onMove(ev, {
-            start_date: toISODate(newStart),
-            end_date: newEnd ? toISODate(newEnd) : null,
-            on_time: ev.on_time,
-            off_time: ev.off_time,
-          });
-        } catch (err) {
-          showTransientError(err instanceof Error ? err.message : "Could not move the event.");
-        }
-      }
+        async function onUp(): Promise<void> {
+          window.removeEventListener("pointermove", onMove);
+          window.removeEventListener("pointerup", onUp);
+          block.style.transform = "";
+          block.classList.remove("week-block-dragging");
 
-      window.addEventListener("pointermove", onMove);
-      window.addEventListener("pointerup", onUp, { once: true });
-    });
+          if (!dragged || dayDelta === 0) {
+            if (!dragged) opts.onEventClick(ev);
+            return;
+          }
+
+          const newStart = addDays(new Date(`${ev.start_date}T00:00:00`), dayDelta);
+          const newEnd = ev.end_date ? addDays(new Date(`${ev.end_date}T00:00:00`), dayDelta) : null;
+          try {
+            await opts.onMove(ev, {
+              start_date: toISODate(newStart),
+              end_date: newEnd ? toISODate(newEnd) : null,
+              on_time: ev.on_time,
+              off_time: ev.off_time,
+            });
+          } catch (err) {
+            showTransientError(err instanceof Error ? err.message : "Could not move the event.");
+          }
+        }
+
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", onUp, { once: true });
+      });
+    }
 
     dailyLane.appendChild(block);
   });
@@ -184,7 +221,7 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
   // columns (or getting clipped) the way the old rail+columns-in-a-flex
   // layout with a hand-synced header row did.
   const grid = document.createElement("div");
-  grid.className = "week-grid";
+  grid.className = isCompact ? "week-grid week-grid-compact" : "week-grid";
 
   const corner = document.createElement("div");
   corner.className = "week-corner";
@@ -192,16 +229,18 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
   corner.style.gridRow = "1";
   grid.appendChild(corner);
 
+  const headers: HTMLDivElement[] = [];
   days.forEach((day, dayIdx) => {
     const iso = dayISOs[dayIdx];
     const header = document.createElement("div");
     header.className = "week-day-header";
     if (iso === todayISO) header.classList.add("week-day-header-today");
     if (dayIdx === 6) header.classList.add("week-day-header-last");
-    header.style.gridColumn = `${dayIdx + 2}`;
+    header.style.gridColumn = isCompact ? "2" : `${dayIdx + 2}`;
     header.style.gridRow = "1";
     header.innerHTML = `<span class="week-day-name">${WEEKDAY_LABELS[dayIdx]}</span><span class="week-day-num">${day.getDate()}</span>`;
     grid.appendChild(header);
+    headers[dayIdx] = header;
   });
 
   const tracks: HTMLDivElement[] = [];
@@ -221,7 +260,7 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
         track.className = "week-day-track";
         if (iso === todayISO) track.classList.add("week-day-col-today");
         if (dayIdx === 6) track.classList.add("week-day-track-last");
-        track.style.gridColumn = `${dayIdx + 2}`;
+        track.style.gridColumn = isCompact ? "2" : `${dayIdx + 2}`;
         track.style.gridRow = "2 / span 24";
         tracks[dayIdx] = track;
       }
@@ -256,7 +295,7 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
         block.textContent = ev.label ?? `Pin ${ev.pin}`;
         block.title = `${ev.label ?? `Pin ${ev.pin}`} · ${ev.on_time}–${ev.off_time}`;
 
-        attachOnceDrag(block, ev, dayIdx, top, track, grid, dayISOs, durS, opts, showTransientError);
+        attachOnceDrag(block, ev, dayIdx, top, track, grid, dayISOs, durS, opts, showTransientError, isCompact);
 
         track.appendChild(block);
       });
@@ -334,7 +373,53 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
     grid.appendChild(emptyHint);
   }
 
-  wrap.append(nav, errorBanner, dailyLane, grid);
+  // Compact mode: only one day's header+track pair is visible at a time
+  // (all share grid-column: 2, set above) — day-to-day nav below just
+  // toggles which one, no re-render needed for that alone.
+  let dayNavLabel: HTMLSpanElement | null = null;
+  if (isCompact) {
+    function showDay(idx: number): void {
+      headers.forEach((h, i) => (h.hidden = i !== idx));
+      tracks.forEach((t, i) => (t.hidden = i !== idx));
+      if (dayNavLabel) {
+        dayNavLabel.textContent = days[idx].toLocaleDateString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+        });
+      }
+    }
+    const dayNav = document.createElement("div");
+    dayNav.className = "week-day-nav";
+    dayNav.innerHTML = `
+      <button type="button" class="btn btn-ghost week-day-prev" aria-label="Previous day">&larr;</button>
+      <span class="week-day-nav-label"></span>
+      <button type="button" class="btn btn-ghost week-day-next" aria-label="Next day">&rarr;</button>
+    `;
+    dayNavLabel = dayNav.querySelector<HTMLSpanElement>(".week-day-nav-label")!;
+    showDay(visibleDayIdx); // now that dayNavLabel exists, this also sets its text
+
+    dayNav.querySelector(".week-day-prev")!.addEventListener("click", () => {
+      if (visibleDayIdx === 0) {
+        opts.onPrevWeek();
+        return;
+      }
+      visibleDayIdx -= 1;
+      showDay(visibleDayIdx);
+    });
+    dayNav.querySelector(".week-day-next")!.addEventListener("click", () => {
+      if (visibleDayIdx === 6) {
+        opts.onNextWeek();
+        return;
+      }
+      visibleDayIdx += 1;
+      showDay(visibleDayIdx);
+    });
+
+    wrap.append(nav, dayNav, errorBanner, dailyLane, grid);
+  } else {
+    wrap.append(nav, errorBanner, dailyLane, grid);
+  }
   root.appendChild(wrap);
 
   // Scroll to a sensible starting hour rather than midnight.
@@ -355,7 +440,17 @@ function attachOnceDrag(
   durationS: number,
   opts: WeekGridOptions,
   showTransientError: (msg: string) => void,
+  isCompact: boolean,
 ): void {
+  // Compact mode shows one day at a time, so there's no visible "next
+  // column" to drag into horizontally — same tap-only treatment as touch.
+  if (IS_COARSE_POINTER || isCompact) {
+    block.classList.add("week-block-tap-only");
+    block.addEventListener("click", () => opts.onEventClick(ev));
+    void track; // track kept for future edge-resize (deferred, not in v1)
+    return;
+  }
+
   block.addEventListener("pointerdown", (downEv) => {
     downEv.preventDefault();
     downEv.stopPropagation();

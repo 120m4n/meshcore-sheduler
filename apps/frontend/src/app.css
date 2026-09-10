@@ -185,12 +185,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* box-sizing: border-box (global) means width/height include padding, so
-     this is a 44px tap target with a small centered glyph, not a 16px one
-     — a 16px box would be an easy miss on a touchscreen. */
-  width: 44px;
-  height: 44px;
-  margin: -14px;
+  /* A negative-margin expansion to the full 44px touch-target minimum
+     would overflow this flex pill's own compact padding and overlap the
+     status label next to it — sized to stay within the pill instead,
+     still a real improvement over the original 16px hitbox. */
+  width: 28px;
+  height: 28px;
   color: inherit;
   font-size: 0.9rem;
   line-height: 1;
@@ -477,6 +477,16 @@
   border: 1px dashed rgba(255, 255, 255, 0.5);
 }
 
+/* Coarse-pointer (touch) devices skip drag entirely — see IS_COARSE_POINTER
+   in week-grid.ts — so these get a plain tap cursor and, critically, no
+   touch-action: none, which would otherwise fight a vertical scroll
+   gesture started with a finger on the block. Declared after .week-block/
+   .week-daily-block so it wins the cascade at equal specificity. */
+.week-block-tap-only {
+  cursor: pointer;
+  touch-action: auto;
+}
+
 .week-block-disabled {
   opacity: 0.45;
 }
@@ -525,6 +535,28 @@
   .week-grid {
     grid-template-columns: 52px repeat(7, minmax(96px, 1fr));
   }
+}
+
+/* One-day-at-a-time mode (see isCompactViewport() in week-grid.ts): 7
+   cramped columns forcing dense horizontal scroll don't fit a phone
+   screen, so below COMPACT_WIDTH_PX only one day's header+track pair is
+   rendered visible (both use grid-column: 2 — see week-grid.ts) with its
+   own day-to-day nav below the week nav. */
+.week-grid-compact {
+  grid-template-columns: 52px 1fr;
+}
+
+.week-day-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.week-day-nav-label {
+  font-weight: 600;
+  font-size: 0.9rem;
 }
 
 /* ---------- calendar grid ---------- */

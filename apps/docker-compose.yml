@@ -1,0 +1,42 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8000:8000"
+    volumes:
+      # SQLite file persists across container recreation.
+      - backend-data:/app/data
+    environment:
+      DATABASE_URL: sqlite:///./data/mesh_scheduler.db
+    # The companion radio is a host USB serial device. Linux containers can
+    # be given a host device with `devices:`, e.g.:
+    #   devices:
+    #     - "/dev/ttyUSB0:/dev/ttyUSB0"
+    # and MESH_SERIAL_PORT=/dev/ttyUSB0 in backend/.env to match. This does
+    # NOT work on Docker Desktop for Windows/Mac — a Windows COM port isn't
+    # visible inside the Linux VM Docker Desktop runs containers in, so
+    # MESH_SERIAL_PORT=COM12 (or similar) only works when uvicorn runs
+    # directly on the Windows host, not inside this container. On Linux
+    # hosts, uncomment `devices:` above once the port is confirmed with
+    # scripts/check_companion.py.
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Baked into the static build at image-build time — Vite env vars
+        # aren't readable at container runtime, only at `vite build` time.
+        # Rebuild the image if this needs to change.
+        VITE_API_BASE_URL: http://localhost:8000
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  backend-data:

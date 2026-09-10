@@ -179,6 +179,34 @@
   }
 }
 
+/* Manual "check now" — without it, an operator who power-cycles the
+   actuator/radio has to wait up to HEALTH_POLL_MS for the pill to update. */
+.mesh-status-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: inherit;
+  font-size: 0.9rem;
+  line-height: 1;
+  border-radius: 50%;
+}
+
+.mesh-status-refresh:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.mesh-status-refresh-spinning {
+  animation: spin 0.7s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mesh-status-refresh-spinning {
+    animation-duration: 1.6s;
+  }
+}
+
 .app-main {
   flex: 1;
   display: grid;

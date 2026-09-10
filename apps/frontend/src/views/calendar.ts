@@ -38,6 +38,7 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
         <span class="mesh-status mesh-status-unknown">
           <span class="mesh-dot"></span>
           <span class="mesh-status-label">Checking mesh…</span>
+          <button type="button" class="mesh-status-refresh" aria-label="Check mesh connection now" title="Check now">&#8635;</button>
         </span>
         <span class="app-header-user">${opts.user}</span>
         <button type="button" class="btn btn-secondary app-logout">Log out</button>
@@ -71,6 +72,7 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
   const listEl = shell.querySelector<HTMLElement>(".event-list")!;
   const statusEl = shell.querySelector<HTMLSpanElement>(".mesh-status")!;
   const statusLabel = shell.querySelector<HTMLSpanElement>(".mesh-status-label")!;
+  const statusRefreshBtn = shell.querySelector<HTMLButtonElement>(".mesh-status-refresh")!;
   const logoutBtn = shell.querySelector<HTMLButtonElement>(".app-logout")!;
   const drawerRoot = document.createElement("div");
   root.appendChild(drawerRoot);
@@ -297,6 +299,16 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
       setMeshStatus("offline");
     }
   }
+
+  // Lets an operator force a check instead of waiting up to HEALTH_POLL_MS
+  // — useful right after power-cycling the actuator or the mesh radio.
+  statusRefreshBtn.addEventListener("click", async () => {
+    statusRefreshBtn.disabled = true;
+    statusRefreshBtn.classList.add("mesh-status-refresh-spinning");
+    await pollHealth();
+    statusRefreshBtn.disabled = false;
+    statusRefreshBtn.classList.remove("mesh-status-refresh-spinning");
+  });
 
   pollHealth();
   healthPollId = setInterval(pollHealth, HEALTH_POLL_MS);

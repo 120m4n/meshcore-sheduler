@@ -93,9 +93,14 @@ export function renderCalendarGrid(root: HTMLElement, opts: CalendarGridOptions)
         const dot = document.createElement("span");
         dot.className = "cal-marker";
         dot.style.background = colorForPin(ev.pin);
-        dot.title = `${ev.label ?? `Pin ${ev.pin}`} · ${ev.on_time}–${ev.off_time}${
+        // Pin number as text, not just color, so pins stay distinguishable
+        // without relying on hue (colorblindness, low-contrast displays).
+        dot.textContent = String(ev.pin);
+        const title = `${ev.label ?? `Pin ${ev.pin}`} · ${ev.on_time}–${ev.off_time}${
           ev.recurrence === "daily" ? " · daily" : ""
         }`;
+        dot.title = title;
+        dot.setAttribute("aria-label", title);
         if (ev.recurrence === "daily") dot.classList.add("cal-marker-recurring");
         if (!ev.enabled) dot.classList.add("cal-marker-disabled");
         markers.appendChild(dot);

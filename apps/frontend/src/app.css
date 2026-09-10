@@ -294,70 +294,79 @@
   z-index: 5;
 }
 
-.week-body {
-  display: flex;
+/* Single scrolling grid: one element owns both scroll axes, so the hour
+   rail (sticky left) and day header (sticky top) can never drift out of
+   sync with each other or get clipped by a separate flex container's
+   height — the flex/dual-scroll version that used to live here had both
+   problems. Column 1 is the hour rail, columns 2-8 are the seven days;
+   row 1 is the day header, rows 2-25 are the 24 hours. */
+.week-grid {
+  display: grid;
+  grid-template-columns: 52px repeat(7, minmax(110px, 1fr));
+  grid-auto-rows: 64px;
   max-height: 640px;
-  overflow-y: auto;
+  overflow: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
 }
 
-.week-hour-rail {
+.week-corner {
   position: sticky;
+  top: 0;
   left: 0;
+  z-index: 4;
   background: var(--bg-raised);
   border-right: 1px solid var(--border);
-  flex-shrink: 0;
-  width: 52px;
-  z-index: 2;
-}
-
-.week-hour-cell {
-  height: 64px;
-  font-size: 0.68rem;
-  color: var(--ink-faint);
-  font-variant-numeric: tabular-nums;
-  padding: 2px 6px;
-  box-sizing: border-box;
-  border-bottom: 1px solid var(--border);
-}
-
-.week-columns {
-  display: flex;
-  flex: 1;
-  min-width: 0;
-  overflow-x: auto;
-}
-
-.week-day-col {
-  flex: 1;
-  min-width: 110px;
-  border-right: 1px solid var(--border);
-  position: relative;
-}
-
-.week-day-col:last-child {
-  border-right: none;
-}
-
-.week-day-col-today {
-  background: var(--accent-soft);
+  border-bottom: 1px solid var(--border-strong);
 }
 
 .week-day-header {
   position: sticky;
   top: 0;
+  z-index: 3;
   background: var(--bg-raised);
-  z-index: 1;
   display: flex;
   align-items: baseline;
   gap: 6px;
   padding: 8px 8px;
+  border-right: 1px solid var(--border);
   border-bottom: 1px solid var(--border-strong);
   font-size: 0.78rem;
 }
 
-.week-day-col-today .week-day-header {
+.week-day-header-last {
+  border-right: none;
+}
+
+.week-day-header-today {
+  background: var(--accent-soft);
+}
+
+.week-hour-cell {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--bg-raised);
+  font-size: 0.68rem;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+  padding: 2px 6px;
+  box-sizing: border-box;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.week-day-track {
+  position: relative;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.week-day-track-last {
+  border-right: none;
+}
+
+.week-day-col-today {
   background: var(--accent-soft);
 }
 
@@ -372,10 +381,6 @@
 .week-day-num {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-}
-
-.week-day-track {
-  position: relative;
 }
 
 .week-hour-slot {
@@ -411,13 +416,63 @@
   box-shadow: var(--shadow-md);
 }
 
+/* Daily events in the hourly grid: click-to-edit only, not draggable (see
+   the comment above this block's creation in week-grid.ts), so it gets a
+   plain pointer cursor instead of grab, plus a dashed inset ring to read as
+   "recurring" at a glance next to a solid one-off .week-block. */
+.week-block-daily {
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+  border: 1px dashed rgba(255, 255, 255, 0.5);
+}
+
 .week-block-disabled {
   opacity: 0.45;
 }
 
+/* Current-time indicator: a thin line across today's column so the user
+   can eyeball how far off the next scheduled event is, whether or not any
+   events exist yet. Positioned in JS (top, in px, same HOUR_PX scale as
+   .week-block) and re-computed on an interval — see week-grid.ts. */
+.week-now-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 2px solid var(--bad);
+  z-index: 4;
+  pointer-events: none;
+}
+
+.week-now-line::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bad);
+}
+
+.week-now-label {
+  position: absolute;
+  left: 6px;
+  top: -8px;
+  transform: translateY(-100%);
+  background: var(--bad);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
 @media (max-width: 640px) {
-  .week-day-col {
-    min-width: 96px;
+  .week-grid {
+    grid-template-columns: 52px repeat(7, minmax(96px, 1fr));
   }
 }
 
@@ -517,14 +572,25 @@
 }
 
 .cal-marker {
-  width: 7px;
-  height: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
   border-radius: 50%;
   flex-shrink: 0;
+  color: #fff;
+  font-size: 0.56rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
+/* Pin number inside the dot is the color-independent fallback for telling
+   pins apart — colorblind users (or anyone on a low-contrast display)
+   can't reliably distinguish 8 similar hues by color alone. */
 .cal-marker-recurring {
-  border-radius: 2px;
+  border-radius: 3px;
 }
 
 .cal-marker-disabled {
@@ -542,8 +608,9 @@
     min-height: 44px;
   }
   .cal-marker {
-    width: 6px;
-    height: 6px;
+    width: 11px;
+    height: 11px;
+    font-size: 0.5rem;
   }
 }
 

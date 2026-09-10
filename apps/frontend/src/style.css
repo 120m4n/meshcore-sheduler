@@ -136,6 +136,18 @@ p {
   color: var(--ink-faint);
 }
 
+/* Marks the specific field(s) a validation error is about — a red border
+   pairs with prose in the shared error banner so the user isn't left
+   hunting for which input needs fixing, and the border isn't the only
+   signal (aria-invalid, set alongside this class, covers screen readers). */
+.field-invalid {
+  border-color: var(--bad) !important;
+}
+
+.field-invalid:focus-visible {
+  outline-color: var(--bad);
+}
+
 .btn {
   display: inline-flex;
   align-items: center;

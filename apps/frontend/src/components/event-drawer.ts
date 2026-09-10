@@ -229,6 +229,29 @@ export function renderEventDrawer(root: HTMLElement, opts: EventDrawerOptions): 
     errorEl.hidden = false;
   }
 
+  // Marks which field(s) a validation error is about, in addition to the
+  // prose in .drawer-error — a red border alone isn't enough (color-only),
+  // and prose alone makes the user hunt for which input is wrong.
+  const invalidatable = [labelInput, startInput, endInput, onInput, offInput];
+  function clearInvalid(): void {
+    invalidatable.forEach((el) => {
+      el.classList.remove("field-invalid");
+      el.removeAttribute("aria-invalid");
+    });
+  }
+  function markInvalid(...fields: HTMLInputElement[]): void {
+    fields.forEach((el) => {
+      el.classList.add("field-invalid");
+      el.setAttribute("aria-invalid", "true");
+    });
+  }
+  invalidatable.forEach((el) => {
+    el.addEventListener("input", () => {
+      el.classList.remove("field-invalid");
+      el.removeAttribute("aria-invalid");
+    });
+  });
+
   if (deleteBtn && onDelete) {
     deleteBtn.addEventListener("click", async () => {
       const confirmed = window.confirm(
@@ -249,6 +272,7 @@ export function renderEventDrawer(root: HTMLElement, opts: EventDrawerOptions): 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     errorEl.hidden = true;
+    clearInvalid();
 
     const recurrence = recurrenceSelect.value as Recurrence;
     const input: EventInput = {
@@ -264,18 +288,26 @@ export function renderEventDrawer(root: HTMLElement, opts: EventDrawerOptions): 
 
     if (!input.start_date || !input.on_time || !input.off_time) {
       showError("Start date, ON time, and OFF time are required.");
+      markInvalid(
+        ...([!input.start_date && startInput, !input.on_time && onInput, !input.off_time && offInput].filter(
+          Boolean,
+        ) as HTMLInputElement[]),
+      );
       return;
     }
     if (input.recurrence === "daily" && input.end_date && input.end_date < input.start_date) {
       showError("End date cannot be before the start date.");
+      markInvalid(endInput);
       return;
     }
     if (input.off_time <= input.on_time) {
       showError("OFF time must be after ON time (events can't cross midnight).");
+      markInvalid(offInput);
       return;
     }
     if (durationSeconds(input.on_time, input.off_time) < MIN_DURATION_SECONDS) {
       showError(`ON/OFF must be at least ${MIN_DURATION_SECONDS} seconds apart.`);
+      markInvalid(offInput);
       return;
     }
     // Duration > WARN_DURATION_SECONDS is a warning only (already shown live
@@ -283,6 +315,7 @@ export function renderEventDrawer(root: HTMLElement, opts: EventDrawerOptions): 
     const conflict = findOverlap(input, existingEvents, existing?.id ?? null);
     if (conflict) {
       showError(`Overlaps with existing event on pin ${input.pin}: ${describeEvent(conflict)}`);
+      markInvalid(onInput, offInput);
       return;
     }
 

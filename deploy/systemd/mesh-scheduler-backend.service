@@ -1,0 +1,33 @@
+[Unit]
+Description=Mesh Event Scheduler backend (FastAPI + mesh gateway)
+After=network-online.target
+Wants=network-online.target
+# USB serial device must be present before the gateway tries to connect.
+# If the companion is plugged in after boot, restart this unit manually or
+# rely on Restart=on-failure below to retry.
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=mesh-scheduler
+Group=mesh-scheduler
+# /opt/mesh-scheduler is the deploy target used by scripts/deploy_to_pi.sh —
+# change both here and in that script together if you relocate it.
+WorkingDirectory=/opt/mesh-scheduler/backend
+EnvironmentFile=/opt/mesh-scheduler/backend/.env
+ExecStart=/opt/mesh-scheduler/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=5
+
+# The gateway fails loudly on startup if the companion isn't reachable
+# (by design — see app/mesh/gateway.py) so a bad USB connection surfaces as
+# a failed unit, not a silently half-working server. `systemctl status
+# mesh-scheduler-backend` and `journalctl -u mesh-scheduler-backend` are the
+# first place to look if it won't start.
+
+# Bound to 127.0.0.1, not 0.0.0.0: nginx (see deploy/nginx/mesh-scheduler.conf)
+# is the only thing meant to reach this port directly, and proxies both the
+# API and the static frontend on one public port. See "exposing to the web"
+# in apps/README.md for why this matters (session cookies, CORS, one origin).
+[Install]
+WantedBy=multi-user.target

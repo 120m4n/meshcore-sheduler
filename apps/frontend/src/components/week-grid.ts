@@ -112,20 +112,30 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
   const wrap = document.createElement("div");
   wrap.className = "week-grid-wrap";
 
+  // One nav bar, not two: compact mode relabels it to the single visible
+  // day and repurposes prev/next to move a day at a time (falling through
+  // to onPrevWeek/onNextWeek at the week's edges), instead of stacking a
+  // second arrow row on top of the week nav for the same gesture.
   const nav = document.createElement("div");
   nav.className = "cal-nav";
-  const label = `${days[0].toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${days[6].toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+  const weekLabel = `${days[0].toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${days[6].toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
   nav.innerHTML = `
-    <button type="button" class="btn btn-ghost week-prev" aria-label="Previous week">&larr;</button>
+    <button type="button" class="btn btn-ghost week-prev" aria-label="${isCompact ? "Previous day" : "Previous week"}">&larr;</button>
     <div class="week-nav-center">
-      <h2 class="cal-month-label">${label}</h2>
+      <h2 class="cal-month-label">${isCompact ? "" : weekLabel}</h2>
       <button type="button" class="btn btn-ghost btn-sm week-today">Today</button>
     </div>
-    <button type="button" class="btn btn-ghost week-next" aria-label="Next week">&rarr;</button>
+    <button type="button" class="btn btn-ghost week-next" aria-label="${isCompact ? "Next day" : "Next week"}">&rarr;</button>
   `;
-  nav.querySelector(".week-prev")!.addEventListener("click", opts.onPrevWeek);
-  nav.querySelector(".week-next")!.addEventListener("click", opts.onNextWeek);
+  const navLabel = nav.querySelector<HTMLHeadingElement>(".cal-month-label")!;
+  const prevBtn = nav.querySelector<HTMLButtonElement>(".week-prev")!;
+  const nextBtn = nav.querySelector<HTMLButtonElement>(".week-next")!;
   nav.querySelector(".week-today")!.addEventListener("click", opts.onToday);
+
+  if (!isCompact) {
+    prevBtn.addEventListener("click", opts.onPrevWeek);
+    nextBtn.addEventListener("click", opts.onNextWeek);
+  }
 
   const errorBanner = document.createElement("div");
   errorBanner.className = "week-error-banner";
@@ -214,14 +224,97 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
     dailyLane.appendChild(block);
   });
 
-  // ---------- single-grid hour rail + day columns (one shared scroll area) ----------
+  if (isCompact) {
+    // ---------- compact: a plain list of the visible day's events ----------
+    // No 24-row hour grid (mostly-empty overnight rows are noise on a
+    // phone), no "today" highlight (meaningless when only one day is ever
+    // shown — nothing to contrast it against), one nav bar (the week nav
+    // above, relabeled to the day and repurposed for day-to-day movement)
+    // instead of a second arrow row stacked under the first for the same
+    // gesture.
+    function renderDayList(idx: number): void {
+      const iso = dayISOs[idx];
+      navLabel.textContent = days[idx].toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
+      });
+
+      const dayEvents = [
+        ...onceEvents.filter((ev) => occursOnceOn(ev, iso)),
+        ...dailyEvents.filter((ev) => occursDailyOn(ev, iso)),
+      ].sort((a, b) => a.on_time.localeCompare(b.on_time));
+
+      listEl.innerHTML = "";
+      if (dayEvents.length === 0) {
+        const empty = document.createElement("p");
+        empty.className = "hint-text week-day-list-empty";
+        empty.textContent = "No events this day — tap below to add one.";
+        listEl.appendChild(empty);
+        return;
+      }
+
+      dayEvents.forEach((ev) => {
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className = "event-row week-day-list-row";
+        if (!ev.enabled) row.classList.add("event-row-disabled");
+        row.innerHTML = `
+          <div class="event-row-main">
+            <span class="event-row-label">${ev.label ?? `Pin ${ev.pin}`}</span>
+            <span class="event-row-meta">Pin ${ev.pin} · ${ev.on_time}–${ev.off_time}${
+              ev.recurrence === "daily" ? " · Daily" : ""
+            }</span>
+          </div>
+        `;
+        row.style.borderLeftColor = colorForPin(ev.pin);
+        row.addEventListener("click", () => opts.onEventClick(ev));
+        listEl.appendChild(row);
+      });
+    }
+
+    const listEl = document.createElement("div");
+    listEl.className = "week-day-list";
+    renderDayList(visibleDayIdx);
+
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "btn btn-secondary week-day-add";
+    addBtn.textContent = "Add event";
+    addBtn.addEventListener("click", () => opts.onSlotClick(dayISOs[visibleDayIdx], "08:00:00"));
+
+    prevBtn.addEventListener("click", () => {
+      if (visibleDayIdx === 0) {
+        opts.onPrevWeek();
+        return;
+      }
+      visibleDayIdx -= 1;
+      renderDayList(visibleDayIdx);
+      addBtn.onclick = () => opts.onSlotClick(dayISOs[visibleDayIdx], "08:00:00");
+    });
+    nextBtn.addEventListener("click", () => {
+      if (visibleDayIdx === 6) {
+        opts.onNextWeek();
+        return;
+      }
+      visibleDayIdx += 1;
+      renderDayList(visibleDayIdx);
+      addBtn.onclick = () => opts.onSlotClick(dayISOs[visibleDayIdx], "08:00:00");
+    });
+
+    wrap.append(nav, errorBanner, dailyLane, listEl, addBtn);
+    root.appendChild(wrap);
+    return;
+  }
+
+  // ---------- full week: single-grid hour rail + day columns ----------
   // A single CSS Grid owns both scroll axes, with the hour rail sticky on
   // the left and the day header sticky on top — see app.css .week-grid.
   // That's what keeps the rail from drifting out of sync with the day
   // columns (or getting clipped) the way the old rail+columns-in-a-flex
   // layout with a hand-synced header row did.
   const grid = document.createElement("div");
-  grid.className = isCompact ? "week-grid week-grid-compact" : "week-grid";
+  grid.className = "week-grid";
 
   const corner = document.createElement("div");
   corner.className = "week-corner";
@@ -229,18 +322,16 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
   corner.style.gridRow = "1";
   grid.appendChild(corner);
 
-  const headers: HTMLDivElement[] = [];
   days.forEach((day, dayIdx) => {
     const iso = dayISOs[dayIdx];
     const header = document.createElement("div");
     header.className = "week-day-header";
     if (iso === todayISO) header.classList.add("week-day-header-today");
     if (dayIdx === 6) header.classList.add("week-day-header-last");
-    header.style.gridColumn = isCompact ? "2" : `${dayIdx + 2}`;
+    header.style.gridColumn = `${dayIdx + 2}`;
     header.style.gridRow = "1";
     header.innerHTML = `<span class="week-day-name">${WEEKDAY_LABELS[dayIdx]}</span><span class="week-day-num">${day.getDate()}</span>`;
     grid.appendChild(header);
-    headers[dayIdx] = header;
   });
 
   const tracks: HTMLDivElement[] = [];
@@ -260,7 +351,7 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
         track.className = "week-day-track";
         if (iso === todayISO) track.classList.add("week-day-col-today");
         if (dayIdx === 6) track.classList.add("week-day-track-last");
-        track.style.gridColumn = isCompact ? "2" : `${dayIdx + 2}`;
+        track.style.gridColumn = `${dayIdx + 2}`;
         track.style.gridRow = "2 / span 24";
         tracks[dayIdx] = track;
       }
@@ -295,7 +386,7 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
         block.textContent = ev.label ?? `Pin ${ev.pin}`;
         block.title = `${ev.label ?? `Pin ${ev.pin}`} · ${ev.on_time}–${ev.off_time}`;
 
-        attachOnceDrag(block, ev, dayIdx, top, track, grid, dayISOs, durS, opts, showTransientError, isCompact);
+        attachOnceDrag(block, ev, dayIdx, top, track, grid, dayISOs, durS, opts, showTransientError);
 
         track.appendChild(block);
       });
@@ -373,53 +464,7 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
     grid.appendChild(emptyHint);
   }
 
-  // Compact mode: only one day's header+track pair is visible at a time
-  // (all share grid-column: 2, set above) — day-to-day nav below just
-  // toggles which one, no re-render needed for that alone.
-  let dayNavLabel: HTMLSpanElement | null = null;
-  if (isCompact) {
-    function showDay(idx: number): void {
-      headers.forEach((h, i) => (h.hidden = i !== idx));
-      tracks.forEach((t, i) => (t.hidden = i !== idx));
-      if (dayNavLabel) {
-        dayNavLabel.textContent = days[idx].toLocaleDateString("en-US", {
-          weekday: "short",
-          month: "short",
-          day: "numeric",
-        });
-      }
-    }
-    const dayNav = document.createElement("div");
-    dayNav.className = "week-day-nav";
-    dayNav.innerHTML = `
-      <button type="button" class="btn btn-ghost week-day-prev" aria-label="Previous day">&larr;</button>
-      <span class="week-day-nav-label"></span>
-      <button type="button" class="btn btn-ghost week-day-next" aria-label="Next day">&rarr;</button>
-    `;
-    dayNavLabel = dayNav.querySelector<HTMLSpanElement>(".week-day-nav-label")!;
-    showDay(visibleDayIdx); // now that dayNavLabel exists, this also sets its text
-
-    dayNav.querySelector(".week-day-prev")!.addEventListener("click", () => {
-      if (visibleDayIdx === 0) {
-        opts.onPrevWeek();
-        return;
-      }
-      visibleDayIdx -= 1;
-      showDay(visibleDayIdx);
-    });
-    dayNav.querySelector(".week-day-next")!.addEventListener("click", () => {
-      if (visibleDayIdx === 6) {
-        opts.onNextWeek();
-        return;
-      }
-      visibleDayIdx += 1;
-      showDay(visibleDayIdx);
-    });
-
-    wrap.append(nav, dayNav, errorBanner, dailyLane, grid);
-  } else {
-    wrap.append(nav, errorBanner, dailyLane, grid);
-  }
+  wrap.append(nav, errorBanner, dailyLane, grid);
   root.appendChild(wrap);
 
   // Scroll to a sensible starting hour rather than midnight.
@@ -440,11 +485,11 @@ function attachOnceDrag(
   durationS: number,
   opts: WeekGridOptions,
   showTransientError: (msg: string) => void,
-  isCompact: boolean,
 ): void {
-  // Compact mode shows one day at a time, so there's no visible "next
-  // column" to drag into horizontally — same tap-only treatment as touch.
-  if (IS_COARSE_POINTER || isCompact) {
+  // This only ever runs in the full 7-column week grid (compact mode
+  // returns before reaching it — see renderWeekGrid), so a coarse pointer
+  // is the only tap-only case left to check here.
+  if (IS_COARSE_POINTER) {
     block.classList.add("week-block-tap-only");
     block.addEventListener("click", () => opts.onEventClick(ev));
     void track; // track kept for future edge-resize (deferred, not in v1)

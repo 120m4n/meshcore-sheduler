@@ -537,26 +537,32 @@
   }
 }
 
-/* One-day-at-a-time mode (see isCompactViewport() in week-grid.ts): 7
-   cramped columns forcing dense horizontal scroll don't fit a phone
-   screen, so below COMPACT_WIDTH_PX only one day's header+track pair is
-   rendered visible (both use grid-column: 2 — see week-grid.ts) with its
-   own day-to-day nav below the week nav. */
-.week-grid-compact {
-  grid-template-columns: 52px 1fr;
-}
-
-.week-day-nav {
+/* One-day-at-a-time mode (see isCompactViewport() in week-grid.ts): below
+   COMPACT_WIDTH_PX, the 24-row hour grid is replaced entirely by a plain
+   list of that day's events — mostly-empty overnight rows are noise on a
+   phone, and a single visible day has nothing to contrast a "today"
+   highlight against. Reuses .event-row's look (see the event-list rules
+   below) rather than inventing a second visual language for the same kind
+   of row. */
+.week-day-list {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
   gap: 8px;
-  margin-bottom: 10px;
 }
 
-.week-day-nav-label {
-  font-weight: 600;
-  font-size: 0.9rem;
+.week-day-list-row {
+  width: 100%;
+  border-left: 3px solid transparent;
+}
+
+.week-day-list-empty {
+  padding: 24px 4px;
+  text-align: center;
+}
+
+.week-day-add {
+  margin-top: 10px;
+  width: 100%;
 }
 
 /* ---------- calendar grid ---------- */

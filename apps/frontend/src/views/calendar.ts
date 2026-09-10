@@ -35,7 +35,7 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
         <h1>Calendar</h1>
       </div>
       <div class="app-header-status">
-        <span class="mesh-status mesh-status-unknown">
+        <span class="mesh-status mesh-status-unknown" role="status" aria-live="polite">
           <span class="mesh-dot"></span>
           <span class="mesh-status-label">Checking mesh…</span>
           <button type="button" class="mesh-status-refresh" aria-label="Check mesh connection now" title="Check now">&#8635;</button>

@@ -74,3 +74,11 @@ The entire CLI lives in one large module: `src/meshcore_cli/meshcore_cli.py` (~5
 - Command implementations return human-readable text by default and JSON when `json_output` is true (or the command was `.`-prefixed) — always support both output modes for a new/changed command, matching the existing `if json_output: ... else: ...` pattern.
 - Commands that talk to the device go through `mc.commands.*` (the `meshcore` library's command API) and check `res.type == EventType.ERROR` before treating a response as success.
 - Keep short aliases/shortcuts consistent with the table in `README.md`'s "Available Commands" section — update the README table when adding, renaming, or removing a command or alias.
+
+## General rule: prefer the less complicated path
+
+Before landing a fix, ask: does this solve the problem but make the code and future debugging more complicated (duplicated markup/logic, two code paths doing the same thing, new indirection)? If so, look for a simpler path first — even if it takes another pass to find it. A fix that works but adds a second thing to keep in sync is usually worse than a slightly bigger fix that keeps one source of truth.
+
+## General rule: comments must earn their place
+
+Before adding a comment, ask: does this tell the reader something the code doesn't already say by itself? If a comment just restates what the next line does, don't add it — well-named functions/variables and straightforward code are self-explanatory. Only write a comment for the non-obvious *why*: a hidden constraint, a workaround for a specific bug, a decision that would surprise someone reading cold.

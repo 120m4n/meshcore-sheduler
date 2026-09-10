@@ -93,6 +93,7 @@ export function renderEventDrawer(root: HTMLElement, opts: EventDrawerOptions): 
         <div class="drawer-actions-right">
           <button type="button" class="btn btn-secondary drawer-cancel">Cancel</button>
           <button type="submit" class="btn btn-primary drawer-save">
+            <span class="spinner btn-spinner" hidden></span>
             <span class="btn-label">${existing ? "Save changes" : "Create event"}</span>
           </button>
         </div>
@@ -124,6 +125,7 @@ export function renderEventDrawer(root: HTMLElement, opts: EventDrawerOptions): 
   const errorEl = drawer.querySelector<HTMLDivElement>(".drawer-error")!;
   const saveBtn = drawer.querySelector<HTMLButtonElement>(".drawer-save")!;
   const saveLabel = drawer.querySelector<HTMLSpanElement>(".btn-label")!;
+  const saveSpinner = drawer.querySelector<HTMLSpanElement>(".btn-spinner")!;
   const deleteBtn = drawer.querySelector<HTMLButtonElement>(".drawer-delete");
   const closeBtn = drawer.querySelector<HTMLButtonElement>(".drawer-close")!;
   const cancelBtn = drawer.querySelector<HTMLButtonElement>(".drawer-cancel")!;
@@ -285,6 +287,7 @@ export function renderEventDrawer(root: HTMLElement, opts: EventDrawerOptions): 
     }
 
     saveBtn.disabled = true;
+    saveSpinner.hidden = false;
     saveLabel.textContent = "Saving…";
     try {
       await onSave(input);
@@ -292,6 +295,7 @@ export function renderEventDrawer(root: HTMLElement, opts: EventDrawerOptions): 
     } catch {
       showError("Could not save the event. Please try again.");
       saveBtn.disabled = false;
+      saveSpinner.hidden = true;
       saveLabel.textContent = existing ? "Save changes" : "Create event";
     }
   });

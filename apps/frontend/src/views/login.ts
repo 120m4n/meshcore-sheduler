@@ -1,10 +1,13 @@
-import { ApiError, login } from "../api";
+import { ApiError, devLogin, login } from "../api";
 
 interface LoginViewOptions {
   onSuccess: (user: string, password: string) => void;
+  // Bypasses the OTP step entirely (dev-login authenticates directly), so
+  // this takes a distinct callback rather than reusing onSuccess.
+  onDevBypass?: () => void;
 }
 
-export function renderLoginView(root: HTMLElement, { onSuccess }: LoginViewOptions): void {
+export function renderLoginView(root: HTMLElement, { onSuccess, onDevBypass }: LoginViewOptions): void {
   root.innerHTML = "";
 
   const shell = document.createElement("div");
@@ -32,6 +35,7 @@ export function renderLoginView(root: HTMLElement, { onSuccess }: LoginViewOptio
     </div>
     <div class="auth-error" hidden></div>
     <button type="submit" class="btn btn-primary auth-submit">
+      <span class="spinner btn-spinner" hidden></span>
       <span class="btn-label">Continue</span>
     </button>
   `;
@@ -39,12 +43,14 @@ export function renderLoginView(root: HTMLElement, { onSuccess }: LoginViewOptio
   const errorEl = form.querySelector<HTMLDivElement>(".auth-error")!;
   const submitBtn = form.querySelector<HTMLButtonElement>(".auth-submit")!;
   const submitLabel = form.querySelector<HTMLSpanElement>(".btn-label")!;
+  const submitSpinner = form.querySelector<HTMLSpanElement>(".btn-spinner")!;
   const userInput = form.querySelector<HTMLInputElement>("#login-user")!;
   const passwordInput = form.querySelector<HTMLInputElement>("#login-password")!;
   userInput.focus();
 
   function setBusy(busy: boolean): void {
     submitBtn.disabled = busy;
+    submitSpinner.hidden = !busy;
     submitLabel.textContent = busy ? "Signing in…" : "Continue";
   }
 
@@ -80,6 +86,29 @@ export function renderLoginView(root: HTMLElement, { onSuccess }: LoginViewOptio
   });
 
   card.appendChild(form);
+
+  // Dev-only escape hatch to skip password+OTP while testing the UI. Only
+  // rendered in a Vite dev build; the backend endpoint itself 404s unless
+  // DEV_AUTH_BYPASS=true is set in its .env, so this is inert everywhere
+  // except an explicitly opted-in local setup.
+  if (import.meta.env.DEV && onDevBypass) {
+    const devBtn = document.createElement("button");
+    devBtn.type = "button";
+    devBtn.className = "btn btn-ghost btn-sm auth-dev-bypass";
+    devBtn.textContent = "Dev bypass (skip login)";
+    devBtn.addEventListener("click", async () => {
+      devBtn.disabled = true;
+      try {
+        await devLogin();
+        onDevBypass();
+      } catch {
+        devBtn.disabled = false;
+        devBtn.textContent = "Dev bypass unavailable (set DEV_AUTH_BYPASS=true)";
+      }
+    });
+    card.appendChild(devBtn);
+  }
+
   shell.appendChild(card);
   root.appendChild(shell);
 }

@@ -50,7 +50,10 @@ export function renderOtpView(root: HTMLElement, opts: OtpViewOptions): void {
   timerRow.className = "otp-timer-row";
   timerRow.innerHTML = `
     <span class="otp-timer hint-text"></span>
-    <button type="button" class="btn btn-ghost otp-resend">Resend code</button>
+    <button type="button" class="btn btn-ghost otp-resend">
+      <span class="spinner btn-spinner" hidden></span>
+      <span class="btn-label">Resend code</span>
+    </button>
   `;
 
   const errorEl = document.createElement("div");
@@ -62,6 +65,7 @@ export function renderOtpView(root: HTMLElement, opts: OtpViewOptions): void {
   actions.innerHTML = `
     <button type="button" class="btn btn-secondary otp-back">Back</button>
     <button type="submit" class="btn btn-primary auth-submit">
+      <span class="spinner btn-spinner" hidden></span>
       <span class="btn-label">Verify</span>
     </button>
   `;
@@ -73,9 +77,12 @@ export function renderOtpView(root: HTMLElement, opts: OtpViewOptions): void {
 
   const timerEl = timerRow.querySelector<HTMLSpanElement>(".otp-timer")!;
   const resendBtn = timerRow.querySelector<HTMLButtonElement>(".otp-resend")!;
+  const resendSpinner = timerRow.querySelector<HTMLSpanElement>(".btn-spinner")!;
+  const resendLabel = timerRow.querySelector<HTMLSpanElement>(".btn-label")!;
   const backBtn = actions.querySelector<HTMLButtonElement>(".otp-back")!;
   const submitBtn = actions.querySelector<HTMLButtonElement>(".auth-submit")!;
   const submitLabel = actions.querySelector<HTMLSpanElement>(".btn-label")!;
+  const submitSpinner = actions.querySelector<HTMLSpanElement>(".btn-spinner")!;
 
   let secondsLeft = DEFAULT_TTL_SECONDS;
   let intervalId: ReturnType<typeof setInterval> | null = null;
@@ -135,6 +142,7 @@ export function renderOtpView(root: HTMLElement, opts: OtpViewOptions): void {
 
   function setBusy(busy: boolean): void {
     submitBtn.disabled = busy;
+    submitSpinner.hidden = !busy;
     submitLabel.textContent = busy ? "Verifying…" : "Verify";
   }
 
@@ -148,7 +156,8 @@ export function renderOtpView(root: HTMLElement, opts: OtpViewOptions): void {
   resendBtn.addEventListener("click", async () => {
     errorEl.hidden = true;
     resendBtn.disabled = true;
-    resendBtn.textContent = "Sending…";
+    resendSpinner.hidden = false;
+    resendLabel.textContent = "Sending…";
     try {
       await login(opts.user, opts.password);
       boxes.forEach((b) => (b.value = ""));
@@ -158,7 +167,8 @@ export function renderOtpView(root: HTMLElement, opts: OtpViewOptions): void {
       showError(err instanceof ApiError ? (err.detail ?? "Could not resend the code.") : "Could not resend the code.");
       resendBtn.disabled = false;
     } finally {
-      resendBtn.textContent = "Resend code";
+      resendSpinner.hidden = true;
+      resendLabel.textContent = "Resend code";
     }
   });
 

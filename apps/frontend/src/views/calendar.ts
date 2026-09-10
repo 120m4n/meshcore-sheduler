@@ -3,7 +3,8 @@ import { renderCalendarGrid } from "../components/calendar-grid";
 import { renderEventDrawer } from "../components/event-drawer";
 import { renderWeekGrid } from "../components/week-grid";
 import { addSecondsClamped, DEFAULT_GAP_SECONDS } from "../lib/duration";
-import { ICON_REFRESH } from "../lib/icons";
+import { getLang, Lang, setLang, t } from "../lib/i18n";
+import { FLAG_CO, FLAG_US, ICON_MENU, ICON_SIGNAL } from "../lib/icons";
 import { formatRelative, nextOnOccurrence } from "../lib/next-occurrence";
 import type { ActuatorPinState, EventDTO, EventInput } from "../types";
 
@@ -16,11 +17,12 @@ const STALE_ECHO_SECONDS = 10 * 60;
 type CalTab = "week" | "month";
 
 function formatAge(ageSeconds: number): string {
-  if (ageSeconds < 60) return `${Math.round(ageSeconds)}s ago`;
+  const suffix = getLang() === "es" ? "hace" : "ago";
+  if (ageSeconds < 60) return getLang() === "es" ? `${suffix} ${Math.round(ageSeconds)}s` : `${Math.round(ageSeconds)}s ${suffix}`;
   const minutes = Math.round(ageSeconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return getLang() === "es" ? `${suffix} ${minutes}m` : `${minutes}m ${suffix}`;
   const hours = Math.round(minutes / 60);
-  return `${hours}h ago`;
+  return getLang() === "es" ? `${suffix} ${hours}h` : `${hours}h ${suffix}`;
 }
 
 interface CalendarViewOptions {
@@ -45,29 +47,45 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
   shell.innerHTML = `
     <header class="app-header">
       <div class="app-header-title">
-        <span class="app-header-eyebrow">Mesh Event Scheduler</span>
-        <h1>Calendar</h1>
+        <span class="app-header-eyebrow">${t("appName")}</span>
+        <h1>${t("calendar")}</h1>
       </div>
       <div class="app-header-status">
-        <span class="mesh-status mesh-status-unknown" role="status" aria-live="polite">
-          <span class="mesh-dot"></span>
-          <span class="mesh-status-label">Checking mesh…</span>
-          <button type="button" class="mesh-status-refresh" aria-label="Check mesh connection now" title="Check now">${ICON_REFRESH}</button>
-        </span>
+        <button type="button" class="mesh-status mesh-status-unknown" role="status" aria-live="polite" aria-label="${t("checkingMesh")}" title="${t("checkingMesh")} — ${t("checkNow")}">
+          ${ICON_SIGNAL}
+          <span class="mesh-status-label">${t("checkingMesh")}</span>
+        </button>
+        <button type="button" class="btn btn-ghost nav-arrow lang-toggle lang-toggle-desktop" aria-label="${t("language")}" title="${getLang() === "es" ? "English" : "Español"}">
+          <span class="app-menu-item-flag">${getLang() === "es" ? FLAG_US : FLAG_CO}</span>
+        </button>
         <span class="app-header-user">${opts.user}</span>
-        <button type="button" class="btn btn-secondary app-logout">Log out</button>
+        <button type="button" class="btn btn-secondary app-logout app-logout-desktop">${t("logOut")}</button>
+        <!-- Mobile only (see app.css @media 640px): the row above gets
+             cramped on a phone, so language + logout collapse into one
+             overflow menu there instead of standing controls. -->
+        <div class="app-menu">
+          <button type="button" class="btn btn-ghost nav-arrow app-menu-toggle" aria-label="${t("language")}" aria-haspopup="true" aria-expanded="false">${ICON_MENU}</button>
+          <div class="app-menu-panel" hidden>
+            <div class="app-menu-user">${opts.user}</div>
+            <button type="button" class="app-menu-item lang-toggle">
+              <span class="app-menu-item-flag">${getLang() === "es" ? FLAG_US : FLAG_CO}</span>
+              <span>${getLang() === "es" ? "English" : "Español"}</span>
+            </button>
+            <button type="button" class="app-menu-item app-logout">${t("logOut")}</button>
+          </div>
+        </div>
       </div>
     </header>
     <main class="app-main">
       <section class="cal-section">
         <div class="cal-tabs">
-          <button type="button" class="cal-tab cal-tab-active" data-tab="week">Week</button>
-          <button type="button" class="cal-tab" data-tab="month">Month</button>
+          <button type="button" class="cal-tab cal-tab-active" data-tab="week">${t("week")}</button>
+          <button type="button" class="cal-tab" data-tab="month">${t("month")}</button>
         </div>
         <div class="cal-tab-body"></div>
       </section>
       <aside class="list-section">
-        <h2 class="list-heading">All events</h2>
+        <h2 class="list-heading">${t("allEvents")}</h2>
         <div class="event-list"></div>
       </aside>
     </main>
@@ -84,12 +102,47 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
     });
   });
   const listEl = shell.querySelector<HTMLElement>(".event-list")!;
-  const statusEl = shell.querySelector<HTMLSpanElement>(".mesh-status")!;
-  const statusLabel = shell.querySelector<HTMLSpanElement>(".mesh-status-label")!;
-  const statusRefreshBtn = shell.querySelector<HTMLButtonElement>(".mesh-status-refresh")!;
-  const logoutBtn = shell.querySelector<HTMLButtonElement>(".app-logout")!;
+  const statusEl = shell.querySelector<HTMLButtonElement>(".mesh-status")!;
+  // Desktop shows language/logout as standing controls; mobile collapses
+  // them into the overflow menu instead (see app.css @media 640px) — both
+  // markups exist in the DOM at once, CSS picks which is visible, so both
+  // sets of buttons need the same handlers wired up.
+  const logoutBtns = shell.querySelectorAll<HTMLButtonElement>(".app-logout");
+  const langToggles = shell.querySelectorAll<HTMLButtonElement>(".lang-toggle");
+  const menuToggle = shell.querySelector<HTMLButtonElement>(".app-menu-toggle")!;
+  const menuPanel = shell.querySelector<HTMLDivElement>(".app-menu-panel")!;
   const drawerRoot = document.createElement("div");
   root.appendChild(drawerRoot);
+
+  // Simple click-outside-to-close dropdown — no need for anything fancier
+  // with just two actions (language, logout) behind it.
+  menuToggle.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const willOpen = menuPanel.hidden;
+    menuPanel.hidden = !willOpen;
+    menuToggle.setAttribute("aria-expanded", String(willOpen));
+  });
+  document.addEventListener("click", (e) => {
+    if (!menuPanel.hidden && !menuPanel.contains(e.target as Node) && e.target !== menuToggle) {
+      menuPanel.hidden = true;
+      menuToggle.setAttribute("aria-expanded", "false");
+    }
+  });
+
+  // Simplest correct approach for a plain key->string dict with no
+  // framework reactivity: switching language just re-renders the whole
+  // view from scratch, rather than hunting down and updating every string
+  // node individually. Existing intervals are cleared first so switching
+  // languages repeatedly can't leak timers.
+  langToggles.forEach((toggle) => {
+    toggle.addEventListener("click", () => {
+      const next: Lang = getLang() === "es" ? "en" : "es";
+      setLang(next);
+      if (healthPollId) clearInterval(healthPollId);
+      if (relativeTimeRefreshId) clearInterval(relativeTimeRefreshId);
+      renderCalendarView(root, opts);
+    });
+  });
 
   const toastRoot = document.createElement("div");
   toastRoot.className = "toast-root";
@@ -107,15 +160,17 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
     }, 2800);
   }
 
-  logoutBtn.addEventListener("click", async () => {
-    logoutBtn.disabled = true;
-    try {
-      await logout();
-    } finally {
-      if (healthPollId) clearInterval(healthPollId);
-      if (relativeTimeRefreshId) clearInterval(relativeTimeRefreshId);
-      opts.onLoggedOut();
-    }
+  logoutBtns.forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      logoutBtns.forEach((b) => (b.disabled = true));
+      try {
+        await logout();
+      } finally {
+        if (healthPollId) clearInterval(healthPollId);
+        if (relativeTimeRefreshId) clearInterval(relativeTimeRefreshId);
+        opts.onLoggedOut();
+      }
+    });
   });
 
   async function handleMove(
@@ -136,7 +191,7 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
     try {
       updated = await updateEvent(ev.id, input);
     } catch (err) {
-      throw new Error(err instanceof ApiError ? err.detail ?? "Could not move the event." : "Could not move the event.");
+      throw new Error(err instanceof ApiError ? err.detail ?? t("couldNotMoveEvent") : t("couldNotMoveEvent"));
     }
     events = events.map((e) => (e.id === updated.id ? updated : e));
     renderGrid();
@@ -198,7 +253,7 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
     if (events.length === 0) {
       const empty = document.createElement("p");
       empty.className = "hint-text";
-      empty.textContent = "No events scheduled yet. Click a day on the calendar to add one.";
+      empty.textContent = t("noEventsYet");
       listEl.appendChild(empty);
       return;
     }
@@ -235,14 +290,14 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
       const echoBadge = echo
         ? `<span class="event-row-echo event-row-echo-${echo.state === "ON" ? "on" : "off"}${
             echo.age_seconds > STALE_ECHO_SECONDS ? " event-row-echo-stale" : ""
-          }" title="Last echo from the actuator on this pin, not necessarily from this event">${echo.state} · ${formatAge(echo.age_seconds)}</span>`
+          }" title="${t("lastEchoTitle")}">${echo.state} · ${formatAge(echo.age_seconds)}</span>`
         : "";
 
       row.innerHTML = `
         <div class="event-row-main">
-          <span class="event-row-label">${ev.label ? escapeHtml(ev.label) : `Pin ${ev.pin}`}</span>
-          <span class="event-row-meta">Pin ${ev.pin} · ${ev.on_time}–${ev.off_time}${
-            ev.recurrence === "daily" ? " · Daily" : " · Once"
+          <span class="event-row-label">${ev.label ? escapeHtml(ev.label) : `${t("pin")} ${ev.pin}`}</span>
+          <span class="event-row-meta">${t("pin")} ${ev.pin} · ${ev.on_time}–${ev.off_time} · ${
+            ev.recurrence === "daily" ? t("daily") : t("once")
           }${echoBadge}</span>
         </div>
         <div class="event-row-date">${badge}${ev.start_date}${ev.end_date ? ` → ${ev.end_date}` : ""}</div>
@@ -268,11 +323,11 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
         if (existing) {
           const updated = await updateEvent(existing.id, input);
           events = events.map((e) => (e.id === updated.id ? updated : e));
-          showToast(`Saved "${updated.label || `Pin ${updated.pin}`}".`);
+          showToast(t("saved", { name: updated.label || `${t("pin")} ${updated.pin}` }));
         } else {
           const created = await createEvent(input);
           events = [...events, created];
-          showToast(`Created "${created.label || `Pin ${created.pin}`}".`);
+          showToast(t("created", { name: created.label || `${t("pin")} ${created.pin}` }));
         }
         renderGrid();
         renderList();
@@ -281,7 +336,7 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
         ? async () => {
             await deleteEvent(existing.id);
             events = events.filter((e) => e.id !== existing.id);
-            showToast(`Deleted "${existing.label || `Pin ${existing.pin}`}".`);
+            showToast(t("deleted", { name: existing.label || `${t("pin")} ${existing.pin}` }));
             renderGrid();
             renderList();
           }
@@ -291,7 +346,7 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
   }
 
   async function loadEvents(): Promise<void> {
-    calSection.innerHTML = '<div class="loading-block">Loading calendar…</div>';
+    calSection.innerHTML = `<div class="loading-block">${t("loadingCalendar")}</div>`;
     try {
       events = await fetchEvents();
       renderGrid();
@@ -300,16 +355,18 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
       calSection.innerHTML = "";
       const errBox = document.createElement("div");
       errBox.className = "error-text";
-      errBox.textContent =
-        err instanceof ApiError ? err.detail ?? "Could not load events." : "Could not load events.";
+      errBox.textContent = err instanceof ApiError ? err.detail ?? t("couldNotLoadEvents") : t("couldNotLoadEvents");
       calSection.appendChild(errBox);
     }
   }
 
   function setMeshStatus(state: "ok" | "offline" | "unknown"): void {
     statusEl.className = `mesh-status mesh-status-${state}`;
-    statusLabel.textContent =
-      state === "ok" ? "Mesh connected" : state === "offline" ? "Mesh offline" : "Checking mesh…";
+    const label = state === "ok" ? t("meshConnected") : state === "offline" ? t("meshOffline") : t("checkingMesh");
+    statusEl.setAttribute("aria-label", label);
+    statusEl.title = `${label} — ${t("checkNow")}`;
+    const labelEl = statusEl.querySelector<HTMLSpanElement>(".mesh-status-label");
+    if (labelEl) labelEl.textContent = label;
   }
 
   async function pollHealth(): Promise<void> {
@@ -324,13 +381,15 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
   }
 
   // Lets an operator force a check instead of waiting up to HEALTH_POLL_MS
-  // — useful right after power-cycling the actuator or the mesh radio.
-  statusRefreshBtn.addEventListener("click", async () => {
-    statusRefreshBtn.disabled = true;
-    statusRefreshBtn.classList.add("mesh-status-refresh-spinning");
+  // — useful right after power-cycling the actuator or the mesh radio. The
+  // pill itself is the button now (no separate refresh icon next to it —
+  // see the header-decluttering pass that collapsed the label away too).
+  statusEl.addEventListener("click", async () => {
+    statusEl.disabled = true;
+    statusEl.classList.add("mesh-status-refreshing");
     await pollHealth();
-    statusRefreshBtn.disabled = false;
-    statusRefreshBtn.classList.remove("mesh-status-refresh-spinning");
+    statusEl.disabled = false;
+    statusEl.classList.remove("mesh-status-refreshing");
   });
 
   pollHealth();

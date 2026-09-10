@@ -97,7 +97,12 @@
   padding: 14px 24px;
   background: var(--bg-raised);
   border-bottom: 1px solid var(--border);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+}
+
+.app-header-title {
+  min-width: 0;
+  overflow: hidden;
 }
 
 .app-header-eyebrow {
@@ -107,18 +112,25 @@
   text-transform: uppercase;
   color: var(--accent);
   display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .app-header-title h1 {
   font-size: 1.25rem;
   margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .app-header-status {
   display: flex;
   align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
+  gap: 10px;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
 }
 
 .app-header-user {
@@ -127,6 +139,19 @@
   font-weight: 600;
 }
 
+/* Mobile-only controls (hamburger menu, its panel) are built into the DOM
+   unconditionally but hidden here — shown instead, in place of the
+   standing desktop controls, by the max-width:640px block near the bottom
+   of this section. Keeps one shared DOM/JS wiring (see calendar.ts) for
+   both layouts rather than two components with duplicated logic. */
+.app-menu {
+  display: none;
+}
+
+/* The pill itself is the button (click/tap to force a check) — its
+   title/aria-label always carries the state text too, for the mobile
+   layout below where the on-screen label is hidden and only the icon
+   remains. */
 .mesh-status {
   display: inline-flex;
   align-items: center;
@@ -137,35 +162,29 @@
   border-radius: 999px;
 }
 
-.mesh-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+.mesh-status svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 .mesh-status-ok {
   background: var(--ok-soft);
   color: var(--ok);
 }
-.mesh-status-ok .mesh-dot {
-  background: var(--ok);
-}
 
 .mesh-status-offline {
   background: var(--bad-soft);
   color: var(--bad);
 }
-.mesh-status-offline .mesh-dot {
-  background: var(--bad);
+
+.mesh-status-offline svg {
   animation: pulse 1.4s ease-in-out infinite;
 }
 
 .mesh-status-unknown {
   background: var(--bg-sunken);
   color: var(--ink-faint);
-}
-.mesh-status-unknown .mesh-dot {
-  background: var(--ink-faint);
 }
 
 @keyframes pulse {
@@ -174,43 +193,102 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mesh-status-offline .mesh-dot {
+  .mesh-status-offline svg {
     animation: none;
   }
 }
 
-/* Manual "check now" — without it, an operator who power-cycles the
-   actuator/radio has to wait up to HEALTH_POLL_MS for the pill to update. */
-.mesh-status-refresh {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  /* A negative-margin expansion to the full 44px touch-target minimum
-     would overflow this flex pill's own compact padding and overlap the
-     status label next to it — sized to stay within the pill instead,
-     still a real improvement over the original 16px hitbox. */
-  width: 28px;
-  height: 28px;
-  color: inherit;
-  border-radius: 50%;
-}
-
-.mesh-status-refresh svg {
-  width: 15px;
-  height: 15px;
-}
-
-.mesh-status-refresh:hover:not(:disabled) {
-  background: rgba(0, 0, 0, 0.08);
-}
-
-.mesh-status-refresh-spinning {
+.mesh-status-refreshing svg {
   animation: spin 0.7s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mesh-status-refresh-spinning {
+  .mesh-status-refreshing svg {
     animation-duration: 1.6s;
+  }
+}
+
+/* Language + logout live behind one overflow menu instead of as two more
+   standing controls in the header row. */
+.app-menu {
+  position: relative;
+}
+
+.app-menu-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 180px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  padding: 6px;
+  z-index: 30;
+}
+
+.app-menu-user {
+  padding: 8px 10px 6px;
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink);
+  min-height: 40px;
+}
+
+.app-menu-item:hover {
+  background: var(--bg-sunken);
+}
+
+.app-menu-item-flag {
+  display: inline-flex;
+  border-radius: 2px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px var(--border);
+  flex-shrink: 0;
+}
+
+/* Mobile: the full desktop row (eyebrow+title, full-text status pill,
+   username, standalone language toggle, standalone logout button) is too
+   much for a phone-width header — collapses to status icon + one overflow
+   menu holding everything else. Desktop above this breakpoint is
+   untouched. */
+@media (max-width: 640px) {
+  .app-header-title,
+  .app-header-user,
+  .mesh-status-label,
+  .lang-toggle-desktop,
+  .app-logout-desktop {
+    display: none;
+  }
+
+  .mesh-status {
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    justify-content: center;
+    border-radius: 50%;
+  }
+
+  .app-menu {
+    display: block;
   }
 }
 
@@ -303,7 +381,10 @@
 }
 
 .week-daily-lane-empty::before {
-  content: "No recurring (daily) events this week.";
+  /* Text comes from the element's own data-empty-text attribute (set in
+     week-grid.ts) rather than a hardcoded CSS string, so it can follow the
+     active language — see lib/i18n.ts. */
+  content: attr(data-empty-text);
   color: var(--ink-faint);
   font-size: 0.78rem;
   padding: 6px 4px;

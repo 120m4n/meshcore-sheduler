@@ -1,6 +1,7 @@
 import "./style.css";
 import "./app.css";
 import { fetchMe, setUnauthorizedHandler } from "./api";
+import { t } from "./lib/i18n";
 import { renderLoginView } from "./views/login";
 import { renderOtpView } from "./views/otp";
 import { renderCalendarView } from "./views/calendar";
@@ -56,10 +57,10 @@ function showLoadError(): void {
   root.innerHTML = `
     <div class="auth-shell">
       <div class="auth-card">
-        <div class="auth-eyebrow">Mesh Event Scheduler</div>
-        <h1>Can't reach the server</h1>
-        <p class="auth-subtitle">Check that the backend is running and try again.</p>
-        <button type="button" class="btn btn-primary auth-submit" id="retry-btn">Retry</button>
+        <div class="auth-eyebrow">${t("appName")}</div>
+        <h1>${t("cantReachServer")}</h1>
+        <p class="auth-subtitle">${t("checkBackendRunning")}</p>
+        <button type="button" class="btn btn-primary auth-submit" id="retry-btn">${t("retry")}</button>
       </div>
     </div>
   `;
@@ -67,7 +68,7 @@ function showLoadError(): void {
 }
 
 async function boot(): Promise<void> {
-  root.innerHTML = '<div class="loading-block">Loading…</div>';
+  root.innerHTML = `<div class="loading-block">${t("loading")}</div>`;
   try {
     const me = await fetchMe();
     if (me.status === "authenticated" && me.user) {

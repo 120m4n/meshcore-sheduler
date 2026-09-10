@@ -1,8 +1,10 @@
 import { colorForPin } from "../lib/colors";
+import { getLang, t } from "../lib/i18n";
 import { ICON_CHEVRON_LEFT, ICON_CHEVRON_RIGHT } from "../lib/icons";
 import type { EventDTO } from "../types";
 
-const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEKDAY_LABELS_EN = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEKDAY_LABELS_ES = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 function toISODate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -36,21 +38,22 @@ export function renderCalendarGrid(root: HTMLElement, opts: CalendarGridOptions)
 
   const nav = document.createElement("div");
   nav.className = "cal-nav";
-  const monthLabel = new Date(year, month, 1).toLocaleDateString("en-US", {
+  const monthLabel = new Date(year, month, 1).toLocaleDateString(getLang() === "es" ? "es-ES" : "en-US", {
     month: "long",
     year: "numeric",
   });
   nav.innerHTML = `
-    <button type="button" class="btn btn-ghost nav-arrow cal-prev" aria-label="Previous month">${ICON_CHEVRON_LEFT}</button>
+    <button type="button" class="btn btn-ghost nav-arrow cal-prev" aria-label="${getLang() === "es" ? "Mes anterior" : "Previous month"}">${ICON_CHEVRON_LEFT}</button>
     <h2 class="cal-month-label">${monthLabel}</h2>
-    <button type="button" class="btn btn-ghost nav-arrow cal-next" aria-label="Next month">${ICON_CHEVRON_RIGHT}</button>
+    <button type="button" class="btn btn-ghost nav-arrow cal-next" aria-label="${getLang() === "es" ? "Mes siguiente" : "Next month"}">${ICON_CHEVRON_RIGHT}</button>
   `;
   nav.querySelector(".cal-prev")!.addEventListener("click", onPrevMonth);
   nav.querySelector(".cal-next")!.addEventListener("click", onNextMonth);
 
   const weekdaysRow = document.createElement("div");
   weekdaysRow.className = "cal-weekdays";
-  WEEKDAY_LABELS.forEach((label) => {
+  const weekdayLabels = getLang() === "es" ? WEEKDAY_LABELS_ES : WEEKDAY_LABELS_EN;
+  weekdayLabels.forEach((label) => {
     const el = document.createElement("div");
     el.className = "cal-weekday";
     el.textContent = label;
@@ -97,8 +100,8 @@ export function renderCalendarGrid(root: HTMLElement, opts: CalendarGridOptions)
         // Pin number as text, not just color, so pins stay distinguishable
         // without relying on hue (colorblindness, low-contrast displays).
         dot.textContent = String(ev.pin);
-        const title = `${ev.label ?? `Pin ${ev.pin}`} · ${ev.on_time}–${ev.off_time}${
-          ev.recurrence === "daily" ? " · daily" : ""
+        const title = `${ev.label ?? `${t("pin")} ${ev.pin}`} · ${ev.on_time}–${ev.off_time}${
+          ev.recurrence === "daily" ? ` · ${t("daily")}` : ""
         }`;
         dot.title = title;
         dot.setAttribute("aria-label", title);

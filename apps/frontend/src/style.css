@@ -249,6 +249,11 @@ p {
   background: var(--border);
 }
 
+.lang-toggle {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
 .error-text {
   color: var(--bad);
   font-size: 0.86rem;

@@ -1,4 +1,5 @@
 import { ApiError, login, verifyOtp } from "../api";
+import { t } from "../lib/i18n";
 
 const OTP_LENGTH = 6;
 const DEFAULT_TTL_SECONDS = 120; // fallback shown until the backend exposes the real TTL
@@ -19,12 +20,9 @@ export function renderOtpView(root: HTMLElement, opts: OtpViewOptions): void {
   const card = document.createElement("div");
   card.className = "auth-card";
   card.innerHTML = `
-    <div class="auth-eyebrow">Mesh Event Scheduler</div>
-    <h1>Enter the code</h1>
-    <p class="auth-subtitle">
-      A one-time code was sent to <strong>#i2c-am2301</strong> on the mesh.
-      Check that channel on your mesh radio and enter the 6 digits below.
-    </p>
+    <div class="auth-eyebrow">${t("appName")}</div>
+    <h1>${t("enterCode")}</h1>
+    <p class="auth-subtitle">${t("otpSubtitle", { channel: "<strong>#i2c-am2301</strong>" })}</p>
   `;
 
   const form = document.createElement("form");
@@ -41,7 +39,7 @@ export function renderOtpView(root: HTMLElement, opts: OtpViewOptions): void {
     box.maxLength = 1;
     box.className = "otp-box";
     box.autocomplete = i === 0 ? "one-time-code" : "off";
-    box.setAttribute("aria-label", `Digit ${i + 1}`);
+    box.setAttribute("aria-label", t("digitLabel", { n: i + 1 }));
     boxes.push(box);
     boxRow.appendChild(box);
   }
@@ -52,7 +50,7 @@ export function renderOtpView(root: HTMLElement, opts: OtpViewOptions): void {
     <span class="otp-timer hint-text"></span>
     <button type="button" class="btn btn-ghost otp-resend">
       <span class="spinner btn-spinner" hidden></span>
-      <span class="btn-label">Resend code</span>
+      <span class="btn-label">${t("resendCode")}</span>
     </button>
   `;
 
@@ -63,10 +61,10 @@ export function renderOtpView(root: HTMLElement, opts: OtpViewOptions): void {
   const actions = document.createElement("div");
   actions.className = "auth-actions";
   actions.innerHTML = `
-    <button type="button" class="btn btn-secondary otp-back">Back</button>
+    <button type="button" class="btn btn-secondary otp-back">${t("back")}</button>
     <button type="submit" class="btn btn-primary auth-submit">
       <span class="spinner btn-spinner" hidden></span>
-      <span class="btn-label">Verify</span>
+      <span class="btn-label">${t("verify")}</span>
     </button>
   `;
 
@@ -90,14 +88,14 @@ export function renderOtpView(root: HTMLElement, opts: OtpViewOptions): void {
   function tick(): void {
     secondsLeft -= 1;
     if (secondsLeft <= 0) {
-      timerEl.textContent = "Code expired — request a new one.";
+      timerEl.textContent = t("codeExpired");
       resendBtn.disabled = false;
       if (intervalId) clearInterval(intervalId);
       return;
     }
     const m = Math.floor(secondsLeft / 60);
     const s = String(secondsLeft % 60).padStart(2, "0");
-    timerEl.textContent = `Expires in ${m}:${s}`;
+    timerEl.textContent = t("expiresIn", { time: `${m}:${s}` });
   }
 
   function startTimer(): void {
@@ -143,7 +141,7 @@ export function renderOtpView(root: HTMLElement, opts: OtpViewOptions): void {
   function setBusy(busy: boolean): void {
     submitBtn.disabled = busy;
     submitSpinner.hidden = !busy;
-    submitLabel.textContent = busy ? "Verifying…" : "Verify";
+    submitLabel.textContent = busy ? t("verifying") : t("verify");
   }
 
   backBtn.addEventListener("click", () => {
@@ -157,18 +155,18 @@ export function renderOtpView(root: HTMLElement, opts: OtpViewOptions): void {
     errorEl.hidden = true;
     resendBtn.disabled = true;
     resendSpinner.hidden = false;
-    resendLabel.textContent = "Sending…";
+    resendLabel.textContent = t("sending");
     try {
       await login(opts.user, opts.password);
       boxes.forEach((b) => (b.value = ""));
       boxes[0].focus();
       startTimer();
     } catch (err) {
-      showError(err instanceof ApiError ? (err.detail ?? "Could not resend the code.") : "Could not resend the code.");
+      showError(err instanceof ApiError ? (err.detail ?? t("couldNotResend")) : t("couldNotResend"));
       resendBtn.disabled = false;
     } finally {
       resendSpinner.hidden = true;
-      resendLabel.textContent = "Resend code";
+      resendLabel.textContent = t("resendCode");
     }
   });
 
@@ -177,7 +175,7 @@ export function renderOtpView(root: HTMLElement, opts: OtpViewOptions): void {
     errorEl.hidden = true;
     const code = boxes.map((b) => b.value).join("");
     if (code.length !== OTP_LENGTH) {
-      showError(`Enter all ${OTP_LENGTH} digits.`);
+      showError(t("enterAllDigits", { count: OTP_LENGTH }));
       return;
     }
 
@@ -188,9 +186,9 @@ export function renderOtpView(root: HTMLElement, opts: OtpViewOptions): void {
       opts.onSuccess();
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        showError(err.detail ?? "Incorrect or expired code.");
+        showError(err.detail ?? t("incorrectOrExpired"));
       } else {
-        showError("Unexpected error verifying the code.");
+        showError(t("unexpectedError"));
       }
       boxes.forEach((b) => (b.value = ""));
       boxes[0].focus();

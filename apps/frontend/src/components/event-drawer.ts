@@ -1,4 +1,5 @@
 import { addSecondsClamped, durationSeconds, MIN_DURATION_SECONDS, WARN_DURATION_SECONDS } from "../lib/duration";
+import { t } from "../lib/i18n";
 import { ICON_CLOSE } from "../lib/icons";
 import { describeEvent, findOverlap } from "../lib/overlap";
 import type { EventDTO, EventInput, Recurrence } from "../types";
@@ -35,67 +36,67 @@ export function renderEventDrawer(root: HTMLElement, opts: EventDrawerOptions): 
 
   drawer.innerHTML = `
     <div class="drawer-header">
-      <h2 id="drawer-title">${existing ? "Edit event" : "New event"}</h2>
-      <button type="button" class="btn btn-ghost drawer-close" aria-label="Close">${ICON_CLOSE}</button>
+      <h2 id="drawer-title">${existing ? t("editEvent") : t("newEvent")}</h2>
+      <button type="button" class="btn btn-ghost drawer-close" aria-label="${t("close")}">${ICON_CLOSE}</button>
     </div>
     <form class="drawer-form">
       <div class="field">
-        <label for="ev-label">Label</label>
-        <input id="ev-label" name="label" type="text" placeholder="Optional name for this event" />
+        <label for="ev-label">${t("label")}</label>
+        <input id="ev-label" name="label" type="text" placeholder="${t("labelPlaceholder")}" />
       </div>
 
       <div class="field-row">
         <div class="field">
-          <label for="ev-pin">Pin</label>
+          <label for="ev-pin">${t("pin")}</label>
           <select id="ev-pin" name="pin"></select>
         </div>
         <div class="field">
-          <label for="ev-recurrence">Recurrence</label>
+          <label for="ev-recurrence">${t("recurrence")}</label>
           <select id="ev-recurrence" name="recurrence">
-            <option value="once">Once</option>
-            <option value="daily">Daily</option>
+            <option value="once">${t("once")}</option>
+            <option value="daily">${t("daily")}</option>
           </select>
         </div>
       </div>
 
       <div class="field-row">
         <div class="field">
-          <label for="ev-start">Start date</label>
+          <label for="ev-start">${t("startDate")}</label>
           <input id="ev-start" name="start_date" type="date" required />
         </div>
         <div class="field" id="ev-end-field">
-          <label for="ev-end">End date</label>
+          <label for="ev-end">${t("endDate")}</label>
           <input id="ev-end" name="end_date" type="date" />
         </div>
       </div>
 
       <div class="field-row">
         <div class="field">
-          <label for="ev-on">ON time</label>
+          <label for="ev-on">${t("onTime")}</label>
           <input id="ev-on" name="on_time" type="time" step="1" required />
         </div>
         <div class="field">
-          <label for="ev-off">OFF time</label>
+          <label for="ev-off">${t("offTime")}</label>
           <input id="ev-off" name="off_time" type="time" step="1" required />
         </div>
       </div>
-      <p class="hint-text">OFF must be at least ${MIN_DURATION_SECONDS} seconds after ON, same day (events can't cross midnight).</p>
+      <p class="hint-text">${t("minDurationHint", { seconds: MIN_DURATION_SECONDS })}</p>
       <div class="drawer-warning warning-text" hidden></div>
 
       <label class="toggle-row">
         <input id="ev-enabled" name="enabled" type="checkbox" />
-        <span>Enabled</span>
+        <span>${t("enabled")}</span>
       </label>
 
       <div class="drawer-error error-text" hidden></div>
 
       <div class="drawer-actions">
-        ${existing ? '<button type="button" class="btn btn-danger drawer-delete">Delete</button>' : "<span></span>"}
+        ${existing ? `<button type="button" class="btn btn-danger drawer-delete">${t("delete")}</button>` : "<span></span>"}
         <div class="drawer-actions-right">
-          <button type="button" class="btn btn-secondary drawer-cancel">Cancel</button>
+          <button type="button" class="btn btn-secondary drawer-cancel">${t("cancel")}</button>
           <button type="submit" class="btn btn-primary drawer-save">
             <span class="spinner btn-spinner" hidden></span>
-            <span class="btn-label">${existing ? "Save changes" : "Create event"}</span>
+            <span class="btn-label">${existing ? t("saveChanges") : t("createEvent")}</span>
           </button>
         </div>
       </div>
@@ -109,7 +110,7 @@ export function renderEventDrawer(root: HTMLElement, opts: EventDrawerOptions): 
   for (let i = 0; i <= 7; i++) {
     const option = document.createElement("option");
     option.value = String(i);
-    option.textContent = `Pin ${i}`;
+    option.textContent = `${t("pin")} ${i}`;
     pinSelect.appendChild(option);
   }
 
@@ -170,7 +171,7 @@ export function renderEventDrawer(root: HTMLElement, opts: EventDrawerOptions): 
       const duration = durationSeconds(onInput.value, offInput.value);
       if (duration >= WARN_DURATION_SECONDS) {
         const hours = (duration / 3600).toFixed(1).replace(/\.0$/, "");
-        warningEl.textContent = `This event runs for ${hours}h — double-check that's intended.`;
+        warningEl.textContent = t("longDurationWarning", { hours });
         warningEl.hidden = false;
       }
     }
@@ -255,16 +256,14 @@ export function renderEventDrawer(root: HTMLElement, opts: EventDrawerOptions): 
 
   if (deleteBtn && onDelete) {
     deleteBtn.addEventListener("click", async () => {
-      const confirmed = window.confirm(
-        "Delete this event? This changes the actuator's schedule immediately.",
-      );
+      const confirmed = window.confirm(t("deleteConfirm"));
       if (!confirmed) return;
       deleteBtn.disabled = true;
       try {
         await onDelete();
         close();
       } catch {
-        showError("Could not delete the event. Please try again.");
+        showError(t("couldNotDelete"));
         deleteBtn.disabled = false;
       }
     });
@@ -288,7 +287,7 @@ export function renderEventDrawer(root: HTMLElement, opts: EventDrawerOptions): 
     };
 
     if (!input.start_date || !input.on_time || !input.off_time) {
-      showError("Start date, ON time, and OFF time are required.");
+      showError(t("requiredFields"));
       markInvalid(
         ...([!input.start_date && startInput, !input.on_time && onInput, !input.off_time && offInput].filter(
           Boolean,
@@ -297,17 +296,17 @@ export function renderEventDrawer(root: HTMLElement, opts: EventDrawerOptions): 
       return;
     }
     if (input.recurrence === "daily" && input.end_date && input.end_date < input.start_date) {
-      showError("End date cannot be before the start date.");
+      showError(t("endBeforeStart"));
       markInvalid(endInput);
       return;
     }
     if (input.off_time <= input.on_time) {
-      showError("OFF time must be after ON time (events can't cross midnight).");
+      showError(t("offBeforeOn"));
       markInvalid(offInput);
       return;
     }
     if (durationSeconds(input.on_time, input.off_time) < MIN_DURATION_SECONDS) {
-      showError(`ON/OFF must be at least ${MIN_DURATION_SECONDS} seconds apart.`);
+      showError(t("minDurationError", { seconds: MIN_DURATION_SECONDS }));
       markInvalid(offInput);
       return;
     }
@@ -315,22 +314,22 @@ export function renderEventDrawer(root: HTMLElement, opts: EventDrawerOptions): 
     // by syncOffConstraints) — it does not block the save.
     const conflict = findOverlap(input, existingEvents, existing?.id ?? null);
     if (conflict) {
-      showError(`Overlaps with existing event on pin ${input.pin}: ${describeEvent(conflict)}`);
+      showError(t("overlapError", { pin: input.pin, event: describeEvent(conflict) }));
       markInvalid(onInput, offInput);
       return;
     }
 
     saveBtn.disabled = true;
     saveSpinner.hidden = false;
-    saveLabel.textContent = "Saving…";
+    saveLabel.textContent = t("saving");
     try {
       await onSave(input);
       close();
     } catch {
-      showError("Could not save the event. Please try again.");
+      showError(t("couldNotSave"));
       saveBtn.disabled = false;
       saveSpinner.hidden = true;
-      saveLabel.textContent = existing ? "Save changes" : "Create event";
+      saveLabel.textContent = existing ? t("saveChanges") : t("createEvent");
     }
   });
 }

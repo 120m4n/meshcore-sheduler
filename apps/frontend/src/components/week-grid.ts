@@ -1,9 +1,14 @@
 import { colorForPin } from "../lib/colors";
 import { durationSeconds, MIN_DURATION_SECONDS } from "../lib/duration";
+import { getLang, t } from "../lib/i18n";
 import { ICON_CHEVRON_LEFT, ICON_CHEVRON_RIGHT } from "../lib/icons";
 import type { EventDTO } from "../types";
 
-const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEKDAY_LABELS_EN = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEKDAY_LABELS_ES = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+function weekdayLabels(): string[] {
+  return getLang() === "es" ? WEEKDAY_LABELS_ES : WEEKDAY_LABELS_EN;
+}
 const HOUR_PX = 64;
 const MIN_BLOCK_PX = 18;
 const SNAP_MINUTES = 5;
@@ -119,12 +124,13 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
   // second arrow row on top of the week nav for the same gesture.
   const nav = document.createElement("div");
   nav.className = "cal-nav";
-  const weekLabel = `${days[0].toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${days[6].toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+  const locale = getLang() === "es" ? "es-ES" : "en-US";
+  const weekLabel = `${days[0].toLocaleDateString(locale, { month: "short", day: "numeric" })} – ${days[6].toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" })}`;
   nav.innerHTML = `
     <button type="button" class="btn btn-ghost nav-arrow week-prev" aria-label="${isCompact ? "Previous day" : "Previous week"}">${ICON_CHEVRON_LEFT}</button>
     <div class="week-nav-center">
       <h2 class="cal-month-label">${isCompact ? "" : weekLabel}</h2>
-      <button type="button" class="btn btn-ghost btn-sm week-today">Today</button>
+      <button type="button" class="btn btn-ghost btn-sm week-today">${t("today")}</button>
     </div>
     <button type="button" class="btn btn-ghost nav-arrow week-next" aria-label="${isCompact ? "Next day" : "Next week"}">${ICON_CHEVRON_RIGHT}</button>
   `;
@@ -160,14 +166,15 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
   dailyLane.className = "week-daily-lane";
   if (dailyEvents.length === 0) {
     dailyLane.classList.add("week-daily-lane-empty");
+    dailyLane.setAttribute("data-empty-text", t("noDailyEventsThisWeek"));
   }
   dailyEvents.forEach((ev) => {
     const block = document.createElement("div");
     block.className = "week-daily-block";
     block.style.background = colorForPin(ev.pin);
     if (!ev.enabled) block.classList.add("week-block-disabled");
-    block.textContent = `${ev.label ?? `Pin ${ev.pin}`} · daily · ${ev.on_time}–${ev.off_time}`;
-    block.title = `${ev.label ?? `Pin ${ev.pin}`} · daily from ${ev.start_date}${ev.end_date ? ` to ${ev.end_date}` : ""}`;
+    block.textContent = `${ev.label ?? `${t("pin")} ${ev.pin}`} · ${t("daily")} · ${ev.on_time}–${ev.off_time}`;
+    block.title = `${ev.label ?? `${t("pin")} ${ev.pin}`} · ${t("daily")} ${ev.start_date}${ev.end_date ? ` → ${ev.end_date}` : ""}`;
 
     if (IS_COARSE_POINTER) {
       block.classList.add("week-block-tap-only");
@@ -213,7 +220,7 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
               off_time: ev.off_time,
             });
           } catch (err) {
-            showTransientError(err instanceof Error ? err.message : "Could not move the event.");
+            showTransientError(err instanceof Error ? err.message : t("couldNotMoveEvent"));
           }
         }
 
@@ -235,7 +242,7 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
     // gesture.
     function renderDayList(idx: number): void {
       const iso = dayISOs[idx];
-      navLabel.textContent = days[idx].toLocaleDateString("en-US", {
+      navLabel.textContent = days[idx].toLocaleDateString(getLang() === "es" ? "es-ES" : "en-US", {
         weekday: "long",
         month: "short",
         day: "numeric",
@@ -250,7 +257,7 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
       if (dayEvents.length === 0) {
         const empty = document.createElement("p");
         empty.className = "hint-text week-day-list-empty";
-        empty.textContent = "No events this day — tap below to add one.";
+        empty.textContent = t("noEventsThisDay");
         listEl.appendChild(empty);
         return;
       }
@@ -262,9 +269,9 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
         if (!ev.enabled) row.classList.add("event-row-disabled");
         row.innerHTML = `
           <div class="event-row-main">
-            <span class="event-row-label">${ev.label ?? `Pin ${ev.pin}`}</span>
-            <span class="event-row-meta">Pin ${ev.pin} · ${ev.on_time}–${ev.off_time}${
-              ev.recurrence === "daily" ? " · Daily" : ""
+            <span class="event-row-label">${ev.label ?? `${t("pin")} ${ev.pin}`}</span>
+            <span class="event-row-meta">${t("pin")} ${ev.pin} · ${ev.on_time}–${ev.off_time}${
+              ev.recurrence === "daily" ? ` · ${t("daily")}` : ""
             }</span>
           </div>
         `;
@@ -281,7 +288,7 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
     const addBtn = document.createElement("button");
     addBtn.type = "button";
     addBtn.className = "btn btn-secondary week-day-add";
-    addBtn.textContent = "Add event";
+    addBtn.textContent = t("addEvent");
     addBtn.addEventListener("click", () => opts.onSlotClick(dayISOs[visibleDayIdx], "08:00:00"));
 
     prevBtn.addEventListener("click", () => {
@@ -331,7 +338,7 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
     if (dayIdx === 6) header.classList.add("week-day-header-last");
     header.style.gridColumn = `${dayIdx + 2}`;
     header.style.gridRow = "1";
-    header.innerHTML = `<span class="week-day-name">${WEEKDAY_LABELS[dayIdx]}</span><span class="week-day-num">${day.getDate()}</span>`;
+    header.innerHTML = `<span class="week-day-name">${weekdayLabels()[dayIdx]}</span><span class="week-day-num">${day.getDate()}</span>`;
     grid.appendChild(header);
   });
 
@@ -384,8 +391,8 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
         block.style.top = `${top}px`;
         block.style.height = `${height}px`;
         block.style.background = colorForPin(ev.pin);
-        block.textContent = ev.label ?? `Pin ${ev.pin}`;
-        block.title = `${ev.label ?? `Pin ${ev.pin}`} · ${ev.on_time}–${ev.off_time}`;
+        block.textContent = ev.label ?? `${t("pin")} ${ev.pin}`;
+        block.title = `${ev.label ?? `${t("pin")} ${ev.pin}`} · ${ev.on_time}–${ev.off_time}`;
 
         attachOnceDrag(block, ev, dayIdx, top, track, grid, dayISOs, durS, opts, showTransientError);
 
@@ -414,8 +421,8 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
         block.style.top = `${top}px`;
         block.style.height = `${height}px`;
         block.style.background = colorForPin(ev.pin);
-        block.textContent = ev.label ?? `Pin ${ev.pin}`;
-        block.title = `${ev.label ?? `Pin ${ev.pin}`} · daily · ${ev.on_time}–${ev.off_time}`;
+        block.textContent = ev.label ?? `${t("pin")} ${ev.pin}`;
+        block.title = `${ev.label ?? `${t("pin")} ${ev.pin}`} · ${t("daily")} · ${ev.on_time}–${ev.off_time}`;
         block.addEventListener("click", () => opts.onEventClick(ev));
 
         track.appendChild(block);
@@ -461,7 +468,7 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
   if (onceEvents.length === 0 && dailyEvents.length === 0) {
     const emptyHint = document.createElement("div");
     emptyHint.className = "week-empty-hint";
-    emptyHint.textContent = "No events this week — click any hour to add one.";
+    emptyHint.textContent = t("noEventsThisWeek");
     grid.appendChild(emptyHint);
   }
 
@@ -538,7 +545,7 @@ function attachOnceDrag(
       const newOffTime = secondsToHHMMSS(newOnSeconds + durationS);
 
       if (newOffTime <= newOnTime || durationSeconds(newOnTime, newOffTime) < MIN_DURATION_SECONDS) {
-        showTransientError(`ON/OFF must be at least ${MIN_DURATION_SECONDS} seconds apart, same day.`);
+        showTransientError(t("minDurationErrorSameDay", { seconds: MIN_DURATION_SECONDS }));
         return;
       }
 
@@ -550,7 +557,7 @@ function attachOnceDrag(
           off_time: newOffTime,
         });
       } catch (err) {
-        showTransientError(err instanceof Error ? err.message : "Could not move the event.");
+        showTransientError(err instanceof Error ? err.message : t("couldNotMoveEvent"));
       }
     }
 

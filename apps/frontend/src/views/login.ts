@@ -1,4 +1,5 @@
 import { ApiError, devLogin, login } from "../api";
+import { t } from "../lib/i18n";
 
 interface LoginViewOptions {
   onSuccess: (user: string, password: string) => void;
@@ -17,26 +18,26 @@ export function renderLoginView(root: HTMLElement, { onSuccess, onDevBypass }: L
   card.className = "auth-card";
 
   card.innerHTML = `
-    <div class="auth-eyebrow">Mesh Event Scheduler</div>
-    <h1>Sign in</h1>
-    <p class="auth-subtitle">Access is limited to registered operators.</p>
+    <div class="auth-eyebrow">${t("appName")}</div>
+    <h1>${t("signIn")}</h1>
+    <p class="auth-subtitle">${t("signInSubtitle")}</p>
   `;
 
   const form = document.createElement("form");
   form.className = "auth-form";
   form.innerHTML = `
     <div class="field">
-      <label for="login-user">Username</label>
+      <label for="login-user">${t("username")}</label>
       <input id="login-user" name="user" type="text" autocomplete="username" required autofocus />
     </div>
     <div class="field">
-      <label for="login-password">Password</label>
+      <label for="login-password">${t("password")}</label>
       <input id="login-password" name="password" type="password" autocomplete="current-password" required />
     </div>
     <div class="auth-error" hidden></div>
     <button type="submit" class="btn btn-primary auth-submit">
       <span class="spinner btn-spinner" hidden></span>
-      <span class="btn-label">Continue</span>
+      <span class="btn-label">${t("continueLabel")}</span>
     </button>
   `;
 
@@ -51,7 +52,7 @@ export function renderLoginView(root: HTMLElement, { onSuccess, onDevBypass }: L
   function setBusy(busy: boolean): void {
     submitBtn.disabled = busy;
     submitSpinner.hidden = !busy;
-    submitLabel.textContent = busy ? "Signing in…" : "Continue";
+    submitLabel.textContent = busy ? t("signingIn") : t("continueLabel");
   }
 
   function showError(message: string): void {
@@ -72,11 +73,11 @@ export function renderLoginView(root: HTMLElement, { onSuccess, onDevBypass }: L
       onSuccess(user, password);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        showError("Incorrect username or password.");
+        showError(t("incorrectCredentials"));
       } else if (err instanceof ApiError) {
-        showError(err.detail ?? "Sign-in failed. Please try again.");
+        showError(err.detail ?? t("signInFailed"));
       } else {
-        showError("Unexpected error. Please try again.");
+        showError(t("unexpectedError"));
       }
       passwordInput.value = "";
       passwordInput.focus();
@@ -95,7 +96,7 @@ export function renderLoginView(root: HTMLElement, { onSuccess, onDevBypass }: L
     const devBtn = document.createElement("button");
     devBtn.type = "button";
     devBtn.className = "btn btn-ghost btn-sm auth-dev-bypass";
-    devBtn.textContent = "Dev bypass (skip login)";
+    devBtn.textContent = t("devBypass");
     devBtn.addEventListener("click", async () => {
       devBtn.disabled = true;
       try {
@@ -103,7 +104,7 @@ export function renderLoginView(root: HTMLElement, { onSuccess, onDevBypass }: L
         onDevBypass();
       } catch {
         devBtn.disabled = false;
-        devBtn.textContent = "Dev bypass unavailable (set DEV_AUTH_BYPASS=true)";
+        devBtn.textContent = t("devBypassUnavailable");
       }
     });
     card.appendChild(devBtn);

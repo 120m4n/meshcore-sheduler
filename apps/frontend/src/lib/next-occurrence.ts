@@ -1,3 +1,4 @@
+import { getLang } from "./i18n";
 import type { EventDTO } from "../types";
 
 function toISODate(d: Date): string {
@@ -40,13 +41,14 @@ export function nextOnOccurrence(ev: EventDTO, now: Date): Date | null {
 // "in 5 days" — precise enough to eyeball urgency without being noisy with
 // seconds-level updates.
 export function formatRelative(target: Date, now: Date): string {
+  const es = getLang() === "es";
   const diffMs = target.getTime() - now.getTime();
   const diffMin = Math.round(diffMs / 60000);
-  if (diffMin < 1) return "starting now";
-  if (diffMin < 60) return `in ${diffMin} min`;
+  if (diffMin < 1) return es ? "empezando ahora" : "starting now";
+  if (diffMin < 60) return es ? `en ${diffMin} min` : `in ${diffMin} min`;
   const diffH = Math.round(diffMin / 60);
-  if (diffH < 24) return `in ${diffH}h`;
+  if (diffH < 24) return es ? `en ${diffH}h` : `in ${diffH}h`;
   const diffDays = Math.round(diffH / 24);
-  if (diffDays === 1) return "tomorrow";
-  return `in ${diffDays} days`;
+  if (diffDays === 1) return es ? "mañana" : "tomorrow";
+  return es ? `en ${diffDays} días` : `in ${diffDays} days`;
 }

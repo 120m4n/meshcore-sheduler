@@ -75,6 +75,22 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
   const drawerRoot = document.createElement("div");
   root.appendChild(drawerRoot);
 
+  const toastRoot = document.createElement("div");
+  toastRoot.className = "toast-root";
+  toastRoot.setAttribute("aria-live", "polite");
+  toastRoot.setAttribute("role", "status");
+  root.appendChild(toastRoot);
+
+  let toastTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  function showToast(message: string): void {
+    toastRoot.textContent = message;
+    toastRoot.classList.add("toast-visible");
+    if (toastTimeoutId) clearTimeout(toastTimeoutId);
+    toastTimeoutId = setTimeout(() => {
+      toastRoot.classList.remove("toast-visible");
+    }, 2800);
+  }
+
   logoutBtn.addEventListener("click", async () => {
     logoutBtn.disabled = true;
     try {
@@ -229,9 +245,11 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
         if (existing) {
           const updated = await updateEvent(existing.id, input);
           events = events.map((e) => (e.id === updated.id ? updated : e));
+          showToast(`Saved "${updated.label || `Pin ${updated.pin}`}".`);
         } else {
           const created = await createEvent(input);
           events = [...events, created];
+          showToast(`Created "${created.label || `Pin ${created.pin}`}".`);
         }
         renderGrid();
         renderList();
@@ -240,6 +258,7 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
         ? async () => {
             await deleteEvent(existing.id);
             events = events.filter((e) => e.id !== existing.id);
+            showToast(`Deleted "${existing.label || `Pin ${existing.pin}`}".`);
             renderGrid();
             renderList();
           }

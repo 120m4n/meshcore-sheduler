@@ -196,6 +196,14 @@ p {
   padding: 9px 12px;
 }
 
+.warning-text {
+  color: var(--warn);
+  font-size: 0.86rem;
+  background: var(--warn-soft);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+}
+
 .hint-text {
   color: var(--ink-faint);
   font-size: 0.82rem;
@@ -219,5 +227,41 @@ p {
 @media (prefers-reduced-motion: reduce) {
   .spinner {
     animation-duration: 1.6s;
+  }
+}
+
+/* Brief success confirmation after create/update/delete — the drawer just
+   closes on its own, so without this an operator acting quickly has no
+   visible confirmation the save actually went through. aria-live="polite"
+   on the container (set in calendar.ts) also announces it to screen readers. */
+.toast-root {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translate(-50%, 12px);
+  background: var(--ok);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 10px 18px;
+  border-radius: 999px;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 20;
+  max-width: calc(100vw - 32px);
+  text-align: center;
+}
+
+.toast-root.toast-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-root {
+    transition: opacity 0.2s ease;
+    transform: translate(-50%, 0);
   }
 }

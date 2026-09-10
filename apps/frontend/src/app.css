@@ -756,6 +756,44 @@
   white-space: nowrap;
 }
 
+/* Last echo the actuator itself reported on this pin (app/mesh/gateway.py's
+   permanent channel listener) — distinct from "the command was sent",
+   which is all the calendar otherwise shows. Not tied to this specific
+   event: two events on the same pin share one echo. */
+.event-row-echo {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.68rem;
+}
+
+.event-row-echo::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.event-row-echo-on {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.event-row-echo-off {
+  background: var(--bg-sunken);
+  color: var(--ink-faint);
+}
+
+.event-row-echo-stale {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
 .loading-block {
   padding: 40px 0;
   text-align: center;

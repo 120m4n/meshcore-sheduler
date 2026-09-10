@@ -4,11 +4,23 @@ import { renderEventDrawer } from "../components/event-drawer";
 import { renderWeekGrid } from "../components/week-grid";
 import { addSecondsClamped, DEFAULT_GAP_SECONDS } from "../lib/duration";
 import { formatRelative, nextOnOccurrence } from "../lib/next-occurrence";
-import type { EventDTO, EventInput } from "../types";
+import type { ActuatorPinState, EventDTO, EventInput } from "../types";
 
 const HEALTH_POLL_MS = 30_000;
 const RELATIVE_TIME_REFRESH_MS = 30_000;
+// An echo older than this is likely from before the actuator's last power
+// cycle or a missed message, not a reliable "current" reading — flagged
+// visually rather than hidden, since a stale echo is still better than none.
+const STALE_ECHO_SECONDS = 10 * 60;
 type CalTab = "week" | "month";
+
+function formatAge(ageSeconds: number): string {
+  if (ageSeconds < 60) return `${Math.round(ageSeconds)}s ago`;
+  const minutes = Math.round(ageSeconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  return `${hours}h ago`;
+}
 
 interface CalendarViewOptions {
   user: string;
@@ -23,6 +35,7 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
   let weekCursor = new Date();
   let tab: CalTab = "week";
   let events: EventDTO[] = [];
+  let actuatorState: Record<string, ActuatorPinState> = {};
   let healthPollId: ReturnType<typeof setInterval> | null = null;
   let relativeTimeRefreshId: ReturnType<typeof setInterval> | null = null;
 
@@ -217,12 +230,19 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
           ? `<span class="event-row-badge">${escapeHtml(formatRelative(soonestAt, now))}</span>`
           : "";
 
+      const echo = actuatorState[String(ev.pin)];
+      const echoBadge = echo
+        ? `<span class="event-row-echo event-row-echo-${echo.state === "ON" ? "on" : "off"}${
+            echo.age_seconds > STALE_ECHO_SECONDS ? " event-row-echo-stale" : ""
+          }" title="Last echo from the actuator on this pin, not necessarily from this event">${echo.state} · ${formatAge(echo.age_seconds)}</span>`
+        : "";
+
       row.innerHTML = `
         <div class="event-row-main">
           <span class="event-row-label">${ev.label ? escapeHtml(ev.label) : `Pin ${ev.pin}`}</span>
           <span class="event-row-meta">Pin ${ev.pin} · ${ev.on_time}–${ev.off_time}${
             ev.recurrence === "daily" ? " · Daily" : " · Once"
-          }</span>
+          }${echoBadge}</span>
         </div>
         <div class="event-row-date">${badge}${ev.start_date}${ev.end_date ? ` → ${ev.end_date}` : ""}</div>
       `;
@@ -295,6 +315,8 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
     try {
       const health = await fetchHealth();
       setMeshStatus(health.mesh_connected ? "ok" : "offline");
+      actuatorState = health.actuator_state;
+      renderList();
     } catch {
       setMeshStatus("offline");
     }

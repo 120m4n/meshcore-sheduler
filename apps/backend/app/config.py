@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     tz: str = Field("UTC", alias="TZ")
     cors_origins_raw: str = Field("http://localhost:5173", alias="CORS_ORIGINS")
 
+    # Local UI/UX testing only: skips password + mesh OTP and logs in as the
+    # first AUTH_USERS entry. Must never be set in a deployed environment.
+    dev_auth_bypass: bool = Field(False, alias="DEV_AUTH_BYPASS")
+
     @property
     def auth_users(self) -> list[AuthUser]:
         return [AuthUser(item) for item in json.loads(self.auth_users_raw)]

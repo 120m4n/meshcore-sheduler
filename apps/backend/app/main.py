@@ -1,5 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -31,7 +32,7 @@ async def lifespan(app: FastAPI):
     await gateway.start()
     app.state.gateway = gateway
 
-    scheduler = start_scheduler(SessionLocal, gateway)
+    scheduler = start_scheduler(SessionLocal, gateway, ZoneInfo(settings.tz))
     app.state.scheduler = scheduler
 
     try:

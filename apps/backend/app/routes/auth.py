@@ -89,6 +89,27 @@ async def verify_otp(
     return {"authenticated": True}
 
 
+@router.post("/dev-login")
+async def dev_login(
+    response: Response,
+    settings: Settings = Depends(get_settings),
+):
+    # Gated by DEV_AUTH_BYPASS (see config.py) — never available unless a
+    # developer has explicitly opted in via .env for local UI testing.
+    if not settings.dev_auth_bypass:
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
+
+    users = settings.auth_users
+    if not users:
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "no AUTH_USERS configured")
+
+    session_id = str(uuid.uuid4())
+    _set_session_cookie(
+        response, settings.session_secret, {"status": "authenticated", "sid": session_id, "user": users[0].user}
+    )
+    return {"authenticated": True}
+
+
 @router.get("/me", response_model=SessionState)
 async def me(payload: dict | None = Depends(get_session_payload)):
     if payload is None:

@@ -20,6 +20,12 @@ function showLogin(): void {
       pendingCredentials = { user, password };
       showOtp(user);
     },
+    onDevBypass: async () => {
+      const me = await fetchMe();
+      if (me.status === "authenticated" && me.user) {
+        showCalendar(me.user);
+      }
+    },
   });
 }
 
@@ -64,7 +70,7 @@ async function boot(): Promise<void> {
   root.innerHTML = '<div class="loading-block">Loading…</div>';
   try {
     const me = await fetchMe();
-    if (me.state === "authenticated" && me.user) {
+    if (me.status === "authenticated" && me.user) {
       showCalendar(me.user);
     } else {
       showLogin();

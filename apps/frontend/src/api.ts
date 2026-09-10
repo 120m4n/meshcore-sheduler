@@ -89,6 +89,16 @@ export function verifyOtp(code: string): Promise<OtpResponse> {
   );
 }
 
+// Only reachable when the backend has DEV_AUTH_BYPASS=true (local UI testing);
+// returns 404 in any real deployment. See views/login.ts for the gated button.
+export function devLogin(): Promise<{ authenticated: boolean }> {
+  return request<{ authenticated: boolean }>(
+    "/auth/dev-login",
+    { method: "POST" },
+    { treatUnauthorizedAsSessionLoss: false },
+  );
+}
+
 export function fetchMe(): Promise<AuthMeResponse> {
   return request<AuthMeResponse>("/auth/me", {}, { treatUnauthorizedAsSessionLoss: false });
 }

@@ -265,6 +265,16 @@
   flex-shrink: 0;
 }
 
+.app-menu-item-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.app-menu-item-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
 /* Mobile: the full-text status pill, username, and standalone
    language/logout buttons are too much for a phone-width header —
    collapse into status icon + one overflow menu holding everything else.
@@ -317,6 +327,72 @@
 @media (max-width: 860px) {
   .app-main {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- pin status panel (real state of all 8 pins) ---------- */
+
+/* Additive to the per-event echo badge in the event list below — that one
+   only shows up next to an event configured on that pin, so a pin with no
+   event has no visibility anywhere else. This strip is unconditional: all
+   8 pins, always, straight from the gateway's last-observed echo. */
+.pin-status-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 24px;
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--border);
+}
+
+.pin-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 5px 9px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+}
+
+.pin-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pin-status-chip-on {
+  background: var(--ok-soft);
+  color: var(--ok);
+  border-color: var(--ok);
+}
+
+.pin-status-chip-off {
+  background: var(--bg-sunken);
+  color: var(--ink-soft);
+  border-color: var(--border-strong);
+}
+
+.pin-status-chip-unknown {
+  background: var(--bg-sunken);
+  color: var(--ink-faint);
+}
+
+.pin-status-chip-stale {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+@media (max-width: 640px) {
+  .pin-status-panel {
+    padding: 10px 16px;
+  }
+
+  .pin-status-chip {
+    font-size: 0.72rem;
   }
 }
 

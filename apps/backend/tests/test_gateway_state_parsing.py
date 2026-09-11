@@ -79,3 +79,23 @@ def test_later_state_message_overwrites_earlier_one():
     gw._on_channel_message(_mk_event("Rtp-02-switch: STATE=b00000000"))
 
     assert gw.get_actuator_state(0).state == "OFF"
+
+
+def test_reset_prefix_still_parses_full_state():
+    # After a power cycle the actuator announces "RESET" ahead of the
+    # STATE= snapshot instead of a PINn= prefix or nothing at all.
+    gw = _mk_gateway()
+    gw._on_channel_message(_mk_event("Rtp-02-switch: RESET STATE=b00000000"))
+
+    assert len(gw.actuator_states) == 8
+    assert all(s.state == "OFF" for s in gw.actuator_states.values())
+
+
+def test_trailing_annotation_after_state_is_ignored():
+    # A PINn=ON echo can carry a trailing note like "(auto-off 3m)" after
+    # the 8-bit snapshot — that suffix must not stop the bits from parsing.
+    gw = _mk_gateway()
+    gw._on_channel_message(_mk_event("Rtp-02-switch: PIN7=ON STATE=b00000001 (auto-off 3m)"))
+
+    assert gw.get_actuator_state(7).state == "ON"
+    assert all(gw.get_actuator_state(p).state == "OFF" for p in range(0, 7))

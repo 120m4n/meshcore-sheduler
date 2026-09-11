@@ -25,6 +25,7 @@ async def lifespan(app: FastAPI):
         channel_name=settings.mesh_channel_name,
         channel_idx=settings.mesh_channel_idx,
         actuator_name=settings.mesh_actuator_name,
+        session_factory=SessionLocal,
     )
     # Fail loudly on startup if the companion isn't reachable — an app that
     # silently came up without mesh access would accept logins it can never

@@ -39,7 +39,7 @@ export interface ActuatorPinState {
   age_seconds: number;
 }
 
-export interface HealthResponse {
-  mesh_connected: boolean;
-  actuator_state: Record<string, ActuatorPinState>;
-}
+// Payload of every /health/actuator-state/stream SSE message (and the
+// initial snapshot sent on connect) — pushed in real time by the gateway,
+// never fetched/polled by the client. See views/calendar.ts.
+export type ActuatorStateSnapshot = Record<string, ActuatorPinState>;

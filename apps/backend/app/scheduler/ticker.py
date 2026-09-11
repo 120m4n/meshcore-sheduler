@@ -7,7 +7,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy.orm import Session
 
 from app.mesh.gateway import MeshGateway
-from app.repositories import event_repo
+from app.repositories import audit_repo, event_repo
 
 logger = logging.getLogger("scheduler.ticker")
 
@@ -28,6 +28,29 @@ def _actuator_message(pin: int, edge: str) -> str:
     return f"PIN{pin}_{'ON' if edge == 'on' else 'OFF'}"
 
 
+def _record_send(session_factory, event, edge: str, message: str, ok: bool, error: str | None) -> None:
+    # Own short-lived session, separate from the read session above (already
+    # closed by this point) — an audit-write failure must never mask the
+    # actual send's own success/failure, so it's isolated in its own
+    # try/except rather than reusing the surrounding one.
+    db: Session = session_factory()
+    try:
+        audit_repo.record_event_send(
+            db,
+            event_id=event.id,
+            event_label=event.label,
+            pin=event.pin,
+            edge=edge,
+            message=message,
+            ok=ok,
+            error=error,
+        )
+    except Exception:
+        logger.exception("failed to write event_sends audit row for event %s", event.id)
+    finally:
+        db.close()
+
+
 async def run_tick(session_factory, gateway: MeshGateway, tz: ZoneInfo) -> None:
     db: Session = session_factory()
     try:
@@ -45,6 +68,8 @@ async def run_tick(session_factory, gateway: MeshGateway, tz: ZoneInfo) -> None:
 
     for event, edge in due:
         msg = _actuator_message(event.pin, edge)
+        ok = True
+        error: str | None = None
         try:
             # send_channel is fire-and-forget: success here means the
             # companion accepted the packet for transmission, nothing more.
@@ -56,8 +81,12 @@ async def run_tick(session_factory, gateway: MeshGateway, tz: ZoneInfo) -> None:
             # replies decoupled from the triggering command.
             await gateway.send_channel(msg)
             logger.info("fired %s for event %s (%s)", msg, event.id, event.label or "unlabeled")
-        except Exception:
+        except Exception as exc:
+            ok = False
+            error = str(exc)
             logger.exception("failed to fire %s for event %s — no catch-up, next tick moves on", msg, event.id)
+
+        _record_send(session_factory, event, edge, msg, ok, error)
 
     await _maybe_refresh_actuator_state(gateway, next_at, now_local)
 

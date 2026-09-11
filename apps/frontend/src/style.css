@@ -92,29 +92,30 @@
   --pin-7: #808000; /* olive */
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg: #f7f6f3;
-    --bg-raised: #ffffff;
-    --bg-sunken: #eeece6;
-    --ink: #16191a;
-    --ink-soft: #565f61;
-    --ink-faint: #8a9192;
-    --border: #dfe2df;
-    --border-strong: #c7ccc8;
-    --accent: #0f6e63;
-    --accent-ink: #ffffff;
-    --accent-soft: #dcede9;
-    --focus-ring: #0f6e63;
-    --ok: #227a48;
-    --ok-soft: #dcf0e2;
-    --warn: #875204;
-    --warn-soft: #f6e7cd;
-    --bad: #a3372f;
-    --bad-soft: #f5dfdc;
-    --shadow-sm: 0 1px 2px rgba(22, 25, 26, 0.06);
-    --shadow-md: 0 4px 16px rgba(22, 25, 26, 0.1);
-  }
+/* Explicit choice only (lib/theme.ts sets/clears this attribute on <html>)
+   — dark stays the default whenever nothing has been chosen yet, regardless
+   of OS preference. */
+:root[data-theme="light"] {
+  --bg: #f7f6f3;
+  --bg-raised: #ffffff;
+  --bg-sunken: #eeece6;
+  --ink: #16191a;
+  --ink-soft: #565f61;
+  --ink-faint: #8a9192;
+  --border: #dfe2df;
+  --border-strong: #c7ccc8;
+  --accent: #0f6e63;
+  --accent-ink: #ffffff;
+  --accent-soft: #dcede9;
+  --focus-ring: #0f6e63;
+  --ok: #227a48;
+  --ok-soft: #dcf0e2;
+  --warn: #875204;
+  --warn-soft: #f6e7cd;
+  --bad: #a3372f;
+  --bad-soft: #f5dfdc;
+  --shadow-sm: 0 1px 2px rgba(22, 25, 26, 0.06);
+  --shadow-md: 0 4px 16px rgba(22, 25, 26, 0.1);
 }
 
 * {

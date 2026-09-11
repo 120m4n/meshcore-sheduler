@@ -8,6 +8,7 @@ from typing import Awaitable, Callable, TypeVar
 from meshcore import EventType, MeshCore
 
 from app.mesh.channel_bootstrap import ensure_channel
+from app.repositories import audit_repo
 
 logger = logging.getLogger("mesh.gateway")
 
@@ -35,6 +36,15 @@ T = TypeVar("T")
 # once. Bit order confirmed against hardware too: PIN3_ON produced
 # "PIN3=ON STATE=b00010000" — the most-significant bit (leftmost, index 0)
 # is pin 0, descending left to right.
+#
+# The `.*` between "node:" and "STATE=b" is deliberately unconstrained — the
+# actuator prefixes STATE= with whatever triggered it (nothing for
+# PIN_STATUS, "PINn=ON"/"PINn=OFF" for a command echo, "RESET" after a power
+# cycle, ...) and this parser doesn't care which, it only needs the trailing
+# 8-bit snapshot. Likewise nothing after the bits is required, so a suffix
+# like "(auto-off 3m)" is silently ignored. Do not narrow this to a specific
+# prefix — see test_gateway_state_parsing.py for the prefix variants this
+# must keep matching.
 _STATE_RE = re.compile(r"^(?P<node>[^:]+):.*\bSTATE=b(?P<bits>[01]{8})\b")
 
 
@@ -63,13 +73,25 @@ class MeshGateway:
     """
 
     def __init__(
-        self, port: str, baudrate: int, channel_name: str, channel_idx: int, actuator_name: str
+        self,
+        port: str,
+        baudrate: int,
+        channel_name: str,
+        channel_idx: int,
+        actuator_name: str,
+        session_factory: Callable[[], object] | None = None,
     ):
         self._port = port
         self._baudrate = baudrate
         self._channel_name = channel_name
         self._channel_idx = channel_idx
         self._actuator_name = actuator_name
+        # Optional so existing/unit tests that only exercise parsing and
+        # pub/sub (no DB involved) can keep constructing a gateway with no
+        # session factory at all — see test_gateway_state_parsing.py /
+        # test_gateway_state_stream.py. Production always passes one (see
+        # app/main.py).
+        self._session_factory = session_factory
         self._mc: MeshCore | None = None
         self._queue: asyncio.Queue[_Job] = asyncio.Queue()
         self._worker_task: asyncio.Task | None = None
@@ -78,6 +100,12 @@ class MeshGateway:
         # Set once per STATE= message (all 8 pins update together from one
         # message), not per pin — see _on_channel_message.
         self._last_state_check_at: float | None = None
+        # Real-time push targets (see subscribe_state/_broadcast_state) —
+        # the /actuator-state/stream route is the only thing that reads
+        # these. The frontend NEVER talks to the mesh channel directly or
+        # indirectly (no "refresh" action triggers a send here); it only
+        # ever receives whatever this gateway already has in memory.
+        self._subscribers: set["asyncio.Queue[dict]"] = set()
 
     async def start(self) -> None:
         self._mc = await MeshCore.create_serial(
@@ -143,6 +171,56 @@ class MeshGateway:
             )
         self._last_state_check_at = now
         logger.info("actuator state update: STATE=b%s (%s)", bits, m.group("node"))
+        self._broadcast_state()
+        self._record_ack(text, m.group("node"), bits)
+
+    def _record_ack(self, raw_text: str, node: str, bits: str) -> None:
+        # Audit trail of every STATE= this gateway ever observed, whatever
+        # the cause (RESET, a PINn=ON/OFF echo, a PIN_STATUS response, or a
+        # third party on the shared channel) — see ActuatorAck's docstring.
+        # A DB hiccup here must never break the live listener (SSE push
+        # already happened above via _broadcast_state), so it's isolated.
+        if self._session_factory is None:
+            return
+        db = self._session_factory()
+        try:
+            audit_repo.record_actuator_ack(db, raw_text=raw_text, node=node, state_bits=bits)
+        except Exception:
+            logger.exception("failed to write actuator_acks audit row")
+        finally:
+            db.close()
+
+    def subscribe_state(self) -> "asyncio.Queue[dict]":
+        """A new queue that receives this gateway's actuator_state_snapshot()
+        every time _on_channel_message observes a STATE= report — the only
+        way the real-time stream route learns of a change. maxsize=1: only
+        the latest snapshot is ever meaningful, so a consumer that falls
+        behind skips straight to the newest one instead of queuing stale
+        history (see _broadcast_state)."""
+        q: "asyncio.Queue[dict]" = asyncio.Queue(maxsize=1)
+        self._subscribers.add(q)
+        return q
+
+    def unsubscribe_state(self, q: "asyncio.Queue[dict]") -> None:
+        self._subscribers.discard(q)
+
+    def actuator_state_snapshot(self) -> dict[str, dict]:
+        """JSON-shaped snapshot of last-observed state per pin, keyed by pin
+        number as a string. Single source of truth for how age_seconds is
+        computed — both /health and the real-time stream route call this
+        rather than each building their own dict, so they can't drift."""
+        now = time.monotonic()
+        return {
+            str(pin): {"state": s.state, "age_seconds": round(now - s.observed_at, 1)}
+            for pin, s in self._actuator_state.items()
+        }
+
+    def _broadcast_state(self) -> None:
+        snapshot = self.actuator_state_snapshot()
+        for q in self._subscribers:
+            if q.full():
+                q.get_nowait()  # drop the stale snapshot, only the latest matters
+            q.put_nowait(snapshot)
 
     def get_actuator_state(self, pin: int) -> ActuatorState | None:
         """Last state this gateway has observed for `pin`, or None if no

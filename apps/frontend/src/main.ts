@@ -2,9 +2,12 @@ import "./style.css";
 import "./app.css";
 import { fetchMe, setUnauthorizedHandler } from "./api";
 import { t } from "./lib/i18n";
+import { initTheme } from "./lib/theme";
 import { renderLoginView } from "./views/login";
 import { renderOtpView } from "./views/otp";
 import { renderCalendarView } from "./views/calendar";
+
+initTheme();
 
 const root = document.getElementById("app")!;
 

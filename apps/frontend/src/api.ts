@@ -2,7 +2,6 @@ import type {
   AuthMeResponse,
   EventDTO,
   EventInput,
-  HealthResponse,
   LoginResponse,
   OtpResponse,
 } from "./types";
@@ -123,6 +122,10 @@ export function deleteEvent(id: string): Promise<void> {
   return request<void>(`/events/${id}`, { method: "DELETE" });
 }
 
-export function fetchHealth(): Promise<HealthResponse> {
-  return request<HealthResponse>("/health");
+// Real-time only, never polled — see views/calendar.ts. This is a plain
+// URL (not routed through request()) because EventSource makes its own
+// connection; withCredentials on the EventSource itself carries the
+// session cookie, same as credentials: "include" does for fetch().
+export function actuatorStateStreamUrl(): string {
+  return `${BASE_URL}/health/actuator-state/stream`;
 }

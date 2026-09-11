@@ -98,6 +98,13 @@ const dict = {
     lastEchoTitle: "Último eco del actuador en este pin, no necesariamente de este evento",
     // language toggle
     language: "Idioma",
+    // theme toggle
+    theme: "Tema",
+    lightMode: "Modo claro",
+    darkMode: "Modo oscuro",
+    // pin status panel
+    pinStatusTitle: "Estado real de los pines",
+    noData: "Sin datos",
   },
   en: {
     appName: "Actuator Scheduler",
@@ -181,6 +188,11 @@ const dict = {
     loading: "Loading…",
     lastEchoTitle: "Last echo from the actuator on this pin, not necessarily from this event",
     language: "Language",
+    theme: "Theme",
+    lightMode: "Light mode",
+    darkMode: "Dark mode",
+    pinStatusTitle: "Real pin status",
+    noData: "No data",
   },
 } as const;
 

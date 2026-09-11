@@ -65,6 +65,12 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
+# Mesh Event Scheduler backend runtime DB (local dev/test data, not the
+# app's own name so the generic db.sqlite3 pattern above doesn't cover it)
+apps/backend/*.db
+apps/backend/*.db-shm
+apps/backend/*.db-wal
+
 # Flask stuff:
 instance/
 .webassets-cache

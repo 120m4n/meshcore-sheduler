@@ -1,29 +1,17 @@
-import { ApiError, createEvent, deleteEvent, fetchEvents, fetchHealth, logout, updateEvent } from "../api";
+import { actuatorStateStreamUrl, ApiError, createEvent, deleteEvent, fetchEvents, logout, updateEvent } from "../api";
 import { renderCalendarGrid } from "../components/calendar-grid";
 import { renderEventDrawer } from "../components/event-drawer";
 import { renderWeekGrid } from "../components/week-grid";
 import { addSecondsClamped, DEFAULT_GAP_SECONDS } from "../lib/duration";
 import { getLang, Lang, setLang, t } from "../lib/i18n";
-import { FLAG_CO, FLAG_US, ICON_MENU, ICON_SIGNAL } from "../lib/icons";
-import { formatRelative, nextOnOccurrence } from "../lib/next-occurrence";
-import type { ActuatorPinState, EventDTO, EventInput } from "../types";
+import { FLAG_CO, FLAG_US, ICON_MENU, ICON_MOON, ICON_SIGNAL, ICON_SUN } from "../lib/icons";
+import { formatAge, formatRelative, nextOnOccurrence, STALE_ECHO_SECONDS } from "../lib/next-occurrence";
+import { getTheme, setTheme } from "../lib/theme";
+import { renderPinStatusPanel } from "../components/pin-status-panel";
+import type { ActuatorStateSnapshot, EventDTO, EventInput } from "../types";
 
-const HEALTH_POLL_MS = 30_000;
 const RELATIVE_TIME_REFRESH_MS = 30_000;
-// An echo older than this is likely from before the actuator's last power
-// cycle or a missed message, not a reliable "current" reading — flagged
-// visually rather than hidden, since a stale echo is still better than none.
-const STALE_ECHO_SECONDS = 10 * 60;
 type CalTab = "week" | "month";
-
-function formatAge(ageSeconds: number): string {
-  const suffix = getLang() === "es" ? "hace" : "ago";
-  if (ageSeconds < 60) return getLang() === "es" ? `${suffix} ${Math.round(ageSeconds)}s` : `${Math.round(ageSeconds)}s ${suffix}`;
-  const minutes = Math.round(ageSeconds / 60);
-  if (minutes < 60) return getLang() === "es" ? `${suffix} ${minutes}m` : `${minutes}m ${suffix}`;
-  const hours = Math.round(minutes / 60);
-  return getLang() === "es" ? `${suffix} ${hours}h` : `${hours}h ${suffix}`;
-}
 
 interface CalendarViewOptions {
   user: string;
@@ -38,8 +26,8 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
   let weekCursor = new Date();
   let tab: CalTab = "week";
   let events: EventDTO[] = [];
-  let actuatorState: Record<string, ActuatorPinState> = {};
-  let healthPollId: ReturnType<typeof setInterval> | null = null;
+  let actuatorState: ActuatorStateSnapshot = {};
+  let actuatorStream: EventSource | null = null;
   let relativeTimeRefreshId: ReturnType<typeof setInterval> | null = null;
 
   const shell = document.createElement("div");
@@ -54,18 +42,25 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
           ${ICON_SIGNAL}
           <span class="mesh-status-label">${t("checkingMesh")}</span>
         </button>
+        <button type="button" class="btn btn-ghost nav-arrow theme-toggle theme-toggle-desktop" aria-label="${t("theme")}" title="${getTheme() === "dark" ? t("lightMode") : t("darkMode")}">
+          ${getTheme() === "dark" ? ICON_SUN : ICON_MOON}
+        </button>
         <button type="button" class="btn btn-ghost nav-arrow lang-toggle lang-toggle-desktop" aria-label="${t("language")}" title="${getLang() === "es" ? "English" : "Español"}">
           <span class="app-menu-item-flag">${getLang() === "es" ? FLAG_US : FLAG_CO}</span>
         </button>
         <span class="app-header-user">${opts.user}</span>
         <button type="button" class="btn btn-secondary app-logout app-logout-desktop">${t("logOut")}</button>
         <!-- Mobile only (see app.css @media 640px): the row above gets
-             cramped on a phone, so language + logout collapse into one
-             overflow menu there instead of standing controls. -->
+             cramped on a phone, so theme + language + logout collapse into
+             one overflow menu there instead of standing controls. -->
         <div class="app-menu">
           <button type="button" class="btn btn-ghost nav-arrow app-menu-toggle" aria-label="${t("language")}" aria-haspopup="true" aria-expanded="false">${ICON_MENU}</button>
           <div class="app-menu-panel" hidden>
             <div class="app-menu-user">${opts.user}</div>
+            <button type="button" class="app-menu-item theme-toggle">
+              <span class="app-menu-item-icon">${getTheme() === "dark" ? ICON_SUN : ICON_MOON}</span>
+              <span>${getTheme() === "dark" ? t("lightMode") : t("darkMode")}</span>
+            </button>
             <button type="button" class="app-menu-item lang-toggle">
               <span class="app-menu-item-flag">${getLang() === "es" ? FLAG_US : FLAG_CO}</span>
               <span>${getLang() === "es" ? "English" : "Español"}</span>
@@ -75,6 +70,7 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
         </div>
       </div>
     </header>
+    <div class="pin-status-panel-root"></div>
     <main class="app-main">
       <section class="cal-section">
         <div class="cal-tabs">
@@ -101,6 +97,8 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
     });
   });
   const listEl = shell.querySelector<HTMLElement>(".event-list")!;
+  const pinStatusRoot = shell.querySelector<HTMLElement>(".pin-status-panel-root")!;
+  renderPinStatusPanel(pinStatusRoot, { actuatorState });
   const statusEl = shell.querySelector<HTMLButtonElement>(".mesh-status")!;
   // Desktop shows language/logout as standing controls; mobile collapses
   // them into the overflow menu instead (see app.css @media 640px) — both
@@ -108,6 +106,7 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
   // sets of buttons need the same handlers wired up.
   const logoutBtns = shell.querySelectorAll<HTMLButtonElement>(".app-logout");
   const langToggles = shell.querySelectorAll<HTMLButtonElement>(".lang-toggle");
+  const themeToggles = shell.querySelectorAll<HTMLButtonElement>(".theme-toggle");
   const menuToggle = shell.querySelector<HTMLButtonElement>(".app-menu-toggle")!;
   const menuPanel = shell.querySelector<HTMLDivElement>(".app-menu-panel")!;
   const drawerRoot = document.createElement("div");
@@ -137,9 +136,32 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
     toggle.addEventListener("click", () => {
       const next: Lang = getLang() === "es" ? "en" : "es";
       setLang(next);
-      if (healthPollId) clearInterval(healthPollId);
+      actuatorStream?.close();
       if (relativeTimeRefreshId) clearInterval(relativeTimeRefreshId);
       renderCalendarView(root, opts);
+    });
+  });
+
+  // Pure CSS variable swap (see style.css :root[data-theme="light"]) — no
+  // need to re-render the view like the language toggle does, just update
+  // the buttons' own icon/label to reflect the new state.
+  themeToggles.forEach((toggle) => {
+    toggle.addEventListener("click", () => {
+      const next = getTheme() === "dark" ? "light" : "dark";
+      setTheme(next);
+      const icon = next === "dark" ? ICON_SUN : ICON_MOON;
+      const label = next === "dark" ? t("lightMode") : t("darkMode");
+      themeToggles.forEach((btn) => {
+        btn.title = label;
+        const iconSlot = btn.querySelector<HTMLElement>(".app-menu-item-icon");
+        if (iconSlot) {
+          iconSlot.innerHTML = icon;
+          const textSlot = btn.querySelector<HTMLElement>("span:last-child");
+          if (textSlot) textSlot.textContent = label;
+        } else {
+          btn.innerHTML = icon;
+        }
+      });
     });
   });
 
@@ -165,7 +187,7 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
       try {
         await logout();
       } finally {
-        if (healthPollId) clearInterval(healthPollId);
+        actuatorStream?.close();
         if (relativeTimeRefreshId) clearInterval(relativeTimeRefreshId);
         opts.onLoggedOut();
       }
@@ -368,31 +390,47 @@ export function renderCalendarView(root: HTMLElement, opts: CalendarViewOptions)
     if (labelEl) labelEl.textContent = label;
   }
 
-  async function pollHealth(): Promise<void> {
-    try {
-      const health = await fetchHealth();
-      setMeshStatus(health.mesh_connected ? "ok" : "offline");
-      actuatorState = health.actuator_state;
+  // Real-time, never polling: the gateway pushes a snapshot the instant it
+  // observes a STATE= report on the mesh channel (any source — this app's
+  // own commands, the scheduler, or a third party), and EventSource pushes
+  // that straight through. This function never causes any mesh-channel
+  // traffic itself — it only (re)opens a connection that reads whatever
+  // the gateway already has in memory (see api.ts actuatorStateStreamUrl
+  // and app/routes/health.py's stream route).
+  function connectActuatorStream(): void {
+    actuatorStream?.close();
+    setMeshStatus("unknown");
+    statusEl.classList.add("mesh-status-refreshing");
+
+    const es = new EventSource(actuatorStateStreamUrl(), { withCredentials: true });
+    actuatorStream = es;
+
+    es.onopen = () => {
+      setMeshStatus("ok");
+      statusEl.classList.remove("mesh-status-refreshing");
+    };
+    es.onmessage = (e) => {
+      actuatorState = JSON.parse(e.data);
       renderList();
-    } catch {
+      renderPinStatusPanel(pinStatusRoot, { actuatorState });
+    };
+    es.onerror = () => {
+      // The browser retries this connection on its own (EventSource's
+      // built-in backoff) — onopen fires again once it succeeds.
       setMeshStatus("offline");
-    }
+      statusEl.classList.remove("mesh-status-refreshing");
+    };
   }
 
-  // Lets an operator force a check instead of waiting up to HEALTH_POLL_MS
-  // — useful right after power-cycling the actuator or the mesh radio. The
-  // pill itself is the button now (no separate refresh icon next to it —
-  // see the header-decluttering pass that collapsed the label away too).
-  statusEl.addEventListener("click", async () => {
-    statusEl.disabled = true;
-    statusEl.classList.add("mesh-status-refreshing");
-    await pollHealth();
-    statusEl.disabled = false;
-    statusEl.classList.remove("mesh-status-refreshing");
+  // The pill doubles as a button: clicking it reconnects the stream (e.g.
+  // right after power-cycling the mesh radio) instead of waiting for the
+  // browser's own retry backoff. Still zero mesh-channel traffic — see
+  // connectActuatorStream.
+  statusEl.addEventListener("click", () => {
+    connectActuatorStream();
   });
 
-  pollHealth();
-  healthPollId = setInterval(pollHealth, HEALTH_POLL_MS);
+  connectActuatorStream();
 
   // Keeps the "in N min" badge on the list from going stale — renderList()
   // alone (no data fetch) is cheap enough to run on a timer.

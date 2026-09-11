@@ -52,3 +52,20 @@ export function formatRelative(target: Date, now: Date): string {
   if (diffDays === 1) return es ? "mañana" : "tomorrow";
   return es ? `en ${diffDays} días` : `in ${diffDays} days`;
 }
+
+// An echo older than this is likely from before the actuator's last power
+// cycle or a missed message, not a reliable "current" reading — flagged
+// visually rather than hidden, since a stale echo is still better than none.
+export const STALE_ECHO_SECONDS = 10 * 60;
+
+// Short elapsed-time label for a past instant: "hace 12s", "hace 3m",
+// "hace 2h" (or the English equivalents) — used for actuator echo age,
+// where "how long ago" matters more than an exact timestamp.
+export function formatAge(ageSeconds: number): string {
+  const suffix = getLang() === "es" ? "hace" : "ago";
+  if (ageSeconds < 60) return getLang() === "es" ? `${suffix} ${Math.round(ageSeconds)}s` : `${Math.round(ageSeconds)}s ${suffix}`;
+  const minutes = Math.round(ageSeconds / 60);
+  if (minutes < 60) return getLang() === "es" ? `${suffix} ${minutes}m` : `${minutes}m ${suffix}`;
+  const hours = Math.round(minutes / 60);
+  return getLang() === "es" ? `${suffix} ${hours}h` : `${hours}h ${suffix}`;
+}

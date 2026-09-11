@@ -1,35 +1,81 @@
+@font-face {
+  font-family: "Inter";
+  src: url("./assets/fonts/Inter-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("./assets/fonts/Inter-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("./assets/fonts/Inter-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Inter";
+  src: url("./assets/fonts/Inter-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("./assets/fonts/JetBrainsMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("./assets/fonts/JetBrainsMono-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
-  --bg: #f5f4f1;
-  --bg-raised: #ffffff;
-  --bg-sunken: #eae8e3;
-  --ink: #1c1b19;
-  --ink-soft: #55524a;
-  --ink-faint: #8b8778;
-  --border: #dcd9d0;
-  --border-strong: #c4c0b3;
-  --accent: #a3591f;
-  --accent-ink: #ffffff;
-  --accent-soft: #f1e2cd;
-  --focus-ring: #a3591f;
-  --ok: #2f7d4f;
-  --ok-soft: #e2f0e6;
-  --warn: #a3760a;
-  --warn-soft: #f7ecd4;
-  --bad: #ab3a34;
-  --bad-soft: #f6e2df;
-  --shadow-sm: 0 1px 2px rgba(28, 25, 20, 0.06);
-  --shadow-md: 0 4px 16px rgba(28, 25, 20, 0.08);
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --font-sans: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  /* Field-panel dark is the primary identity (an instrument panel lit at
+     night); light keeps the same token roles rather than being an
+     afterthought — see docs/redesign-prompt.md. */
+  --bg: #0c0f10;
+  --bg-raised: #12181a;
+  --bg-sunken: #090b0c;
+  --ink: #e8ecec;
+  --ink-soft: #93a0a1;
+  --ink-faint: #5c6a6b;
+  --border: #202a2b;
+  --border-strong: #2e3a3b;
+  --accent: #5eead4;
+  --accent-ink: #06201b;
+  --accent-soft: #14302c;
+  --focus-ring: #5eead4;
+  --ok: #6bd08f;
+  --ok-soft: #142a1d;
+  --warn: #f5b942;
+  --warn-soft: #302510;
+  --bad: #e0645c;
+  --bad-soft: #331917;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 6px 24px rgba(0, 0, 0, 0.5);
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 
   /* One color per actuator pin (0-7) — the single source of truth for pin
      identity across week-grid blocks, month-view markers, and the event
      list's echo badge (see lib/colors.ts, which reads these rather than
      hardcoding hex values, so this is the only place to touch to restyle).
      Deliberately loud/saturated — this is a functional identity signal,
-     not part of the muted earth-tone theme palette above — and built for
+     not part of the muted panel-chrome palette above — and built for
      separability, not just "different hues": hue steps 45° apart around
      the wheel (never adjacent pins sharing a hue neighborhood) combined
      with alternating lightness/saturation bands, so pin N and pin N+1 are
@@ -46,28 +92,28 @@
   --pin-7: #808000; /* olive */
 }
 
-@media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: light) {
   :root {
-    --bg: #16150f;
-    --bg-raised: #201e17;
-    --bg-sunken: #12110c;
-    --ink: #ece9e0;
-    --ink-soft: #bdb8a8;
-    --ink-faint: #837e6d;
-    --border: #34311f;
-    --border-strong: #454029;
-    --accent: #d98b3f;
-    --accent-ink: #16150f;
-    --accent-soft: #382a15;
-    --focus-ring: #d98b3f;
-    --ok: #6bbf8e;
-    --ok-soft: #1c2f22;
-    --warn: #d9ab4c;
-    --warn-soft: #332811;
-    --bad: #e08079;
-    --bad-soft: #33201d;
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-    --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.45);
+    --bg: #f7f6f3;
+    --bg-raised: #ffffff;
+    --bg-sunken: #eeece6;
+    --ink: #16191a;
+    --ink-soft: #565f61;
+    --ink-faint: #8a9192;
+    --border: #dfe2df;
+    --border-strong: #c7ccc8;
+    --accent: #0f6e63;
+    --accent-ink: #ffffff;
+    --accent-soft: #dcede9;
+    --focus-ring: #0f6e63;
+    --ok: #227a48;
+    --ok-soft: #dcf0e2;
+    --warn: #875204;
+    --warn-soft: #f6e7cd;
+    --bad: #a3372f;
+    --bad-soft: #f5dfdc;
+    --shadow-sm: 0 1px 2px rgba(22, 25, 26, 0.06);
+    --shadow-md: 0 4px 16px rgba(22, 25, 26, 0.1);
   }
 }
 
@@ -86,7 +132,7 @@ body {
   color: var(--ink);
   font-family: var(--font-sans);
   font-size: 15px;
-  line-height: 1.5;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -118,13 +164,22 @@ a:focus-visible {
 h1,
 h2,
 h3 {
-  font-weight: 600;
+  font-weight: 700;
   margin: 0;
   text-wrap: balance;
 }
 
 p {
   margin: 0;
+}
+
+/* Tabular data — timestamps, durations, pin numbers — reads in mono with
+   fixed-width figures throughout the app; see docs/redesign-prompt.md
+   principle 1. Applied per-element rather than globally so prose and
+   controls stay in the sans family. */
+.data-text {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- shared form primitives ---------- */
@@ -152,6 +207,11 @@ p {
   /* >=16px is what keeps iOS Safari from auto-zooming the page on focus —
      the body's 15px base would otherwise leak in here via inheritance. */
   font-size: 16px;
+}
+
+.field input[type="time"],
+.field input[type="date"] {
+  font-family: var(--font-mono);
 }
 
 .field input:disabled,
@@ -186,11 +246,11 @@ p {
 }
 
 .btn:hover {
-  filter: brightness(1.05);
+  filter: brightness(1.1);
 }
 
 .btn:active {
-  filter: brightness(0.95);
+  filter: brightness(0.92);
 }
 
 .btn:disabled {
@@ -226,13 +286,14 @@ p {
   padding: 6px 10px;
 }
 
-/* Week/month prev-next controls: a real icon button (circular hit area,
+/* Week/month prev-next controls: a real icon button (square hit area,
    visible hover/active state) instead of a bare arrow glyph floating in
-   the toolbar with nothing to mark it as clickable. */
+   the toolbar with nothing to mark it as clickable. Square, not circular —
+   panel controls read as switches/keys, not soft app-icon buttons. */
 .nav-arrow {
   width: 44px;
   padding: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-sm);
 }
 
 .nav-arrow svg {
@@ -305,12 +366,12 @@ p {
   left: 50%;
   bottom: 24px;
   transform: translate(-50%, 12px);
-  background: var(--ok);
-  color: #fff;
+  background: var(--accent);
+  color: var(--accent-ink);
   font-size: 0.85rem;
   font-weight: 600;
   padding: 10px 18px;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
   opacity: 0;
   pointer-events: none;

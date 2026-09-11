@@ -171,7 +171,7 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
   dailyEvents.forEach((ev) => {
     const block = document.createElement("div");
     block.className = "week-daily-block";
-    block.style.background = colorForPin(ev.pin);
+    block.style.setProperty("--pin-color", colorForPin(ev.pin));
     if (!ev.enabled) block.classList.add("week-block-disabled");
     block.textContent = `${ev.label ?? `${t("pin")} ${ev.pin}`} · ${t("daily")} · ${ev.on_time}–${ev.off_time}`;
     block.title = `${ev.label ?? `${t("pin")} ${ev.pin}`} · ${t("daily")} ${ev.start_date}${ev.end_date ? ` → ${ev.end_date}` : ""}`;
@@ -390,7 +390,7 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
         if (!ev.enabled) block.classList.add("week-block-disabled");
         block.style.top = `${top}px`;
         block.style.height = `${height}px`;
-        block.style.background = colorForPin(ev.pin);
+        block.style.setProperty("--pin-color", colorForPin(ev.pin));
         block.textContent = ev.label ?? `${t("pin")} ${ev.pin}`;
         block.title = `${ev.label ?? `${t("pin")} ${ev.pin}`} · ${ev.on_time}–${ev.off_time}`;
 
@@ -420,7 +420,7 @@ export function renderWeekGrid(root: HTMLElement, opts: WeekGridOptions): void {
         if (!ev.enabled) block.classList.add("week-block-disabled");
         block.style.top = `${top}px`;
         block.style.height = `${height}px`;
-        block.style.background = colorForPin(ev.pin);
+        block.style.setProperty("--pin-color", colorForPin(ev.pin));
         block.textContent = ev.label ?? `${t("pin")} ${ev.pin}`;
         block.title = `${ev.label ?? `${t("pin")} ${ev.pin}`} · ${t("daily")} · ${ev.on_time}–${ev.off_time}`;
         block.addEventListener("click", () => opts.onEventClick(ev));

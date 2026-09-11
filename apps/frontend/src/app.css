@@ -14,15 +14,13 @@
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
   padding: 28px 26px;
 }
 
 .auth-eyebrow {
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
   color: var(--accent);
 }
 
@@ -36,6 +34,7 @@
   color: var(--ink-soft);
   font-size: 0.9rem;
   line-height: 1.5;
+  max-width: 42ch;
 }
 
 .auth-form {
@@ -70,6 +69,7 @@
   text-align: center;
   font-size: 1.3rem;
   font-family: var(--font-mono);
+  font-weight: 700;
   background: var(--bg-raised);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -79,6 +79,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.otp-timer-row .otp-timer {
+  font-family: var(--font-mono);
 }
 
 /* ---------- app shell ---------- */
@@ -106,7 +110,10 @@
 }
 
 .app-header-title h1 {
-  font-size: 1.25rem;
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   margin-top: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -139,15 +146,18 @@
 /* The pill itself is the button (click/tap to force a check) — its
    title/aria-label always carries the state text too, for the mobile
    layout below where the on-screen label is hidden and only the icon
-   remains. */
+   remains. Square corners, not a soft pill — this is a panel indicator
+   light, not a chat-app status badge. */
 .mesh-status {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  font-size: 0.82rem;
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  font-weight: 700;
   padding: 5px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
 }
 
 .mesh-status svg {
@@ -157,13 +167,15 @@
 }
 
 .mesh-status-ok {
-  background: var(--ok-soft);
-  color: var(--ok);
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .mesh-status-offline {
   background: var(--bad-soft);
   color: var(--bad);
+  border-color: var(--bad);
 }
 
 .mesh-status-offline svg {
@@ -265,7 +277,7 @@
   }
 
   .app-header-title h1 {
-    font-size: 1rem;
+    font-size: 0.95rem;
   }
 
   .app-header-user,
@@ -280,7 +292,7 @@
     width: 32px;
     height: 32px;
     justify-content: center;
-    border-radius: 50%;
+    border-radius: var(--radius-sm);
     flex-shrink: 0;
   }
 
@@ -335,14 +347,13 @@
   color: var(--accent);
 }
 
-/* ---------- week grid (Teams-style timeline) ---------- */
+/* ---------- week grid (instrument timeline) ---------- */
 
 .week-grid-wrap {
   background: var(--bg-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 18px;
-  box-shadow: var(--shadow-sm);
 }
 
 .week-nav-center {
@@ -388,12 +399,23 @@
   padding: 6px 4px;
 }
 
+/* Pulse blocks: a panel-colored strip with a solid pin-colored left edge —
+   a labeled channel strip, not a rounded meeting card filled with the pin
+   color. Text stays on the themed panel surface (var(--ink)) rather than
+   directly on the saturated pin fill, so every pin reads at full contrast
+   regardless of hue — the pin color alone (white-text-on-fill) failed
+   WCAG AA on several pins (cyan, olive) in the previous version. See
+   docs/redesign-prompt.md principle "blocks read as pulses, not
+   appointments". */
 .week-daily-block {
-  color: #fff;
-  font-size: 0.76rem;
-  font-weight: 600;
-  padding: 5px 10px;
-  border-radius: 999px;
+  background: var(--bg-sunken);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 5px 10px 5px 8px;
+  border-left: 4px solid var(--pin-color, var(--accent));
+  border-radius: 2px;
   cursor: grab;
   white-space: nowrap;
   overflow: hidden;
@@ -404,7 +426,7 @@
 
 .week-daily-block.week-block-dragging {
   cursor: grabbing;
-  opacity: 0.75;
+  opacity: 0.8;
   z-index: 5;
 }
 
@@ -480,6 +502,7 @@
   left: 0;
   z-index: 2;
   background: var(--bg-raised);
+  font-family: var(--font-mono);
   font-size: 0.68rem;
   color: var(--ink-faint);
   font-variant-numeric: tabular-nums;
@@ -506,12 +529,11 @@
 .week-day-name {
   color: var(--ink-faint);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  font-size: 0.68rem;
+  font-size: 0.7rem;
 }
 
 .week-day-num {
+  font-family: var(--font-mono);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -525,38 +547,42 @@
   background: var(--bg-sunken);
 }
 
+/* Same panel-strip-with-pin-edge treatment as .week-daily-block above —
+   text on the themed surface, pin color as a solid identity bar, so
+   contrast holds regardless of which pin's hue is showing. */
 .week-block {
   position: absolute;
   left: 3px;
   right: 3px;
-  border-radius: 4px;
-  color: #fff;
+  border-radius: 2px;
+  border-left: 3px solid var(--pin-color, var(--accent));
+  background: var(--bg-sunken);
+  color: var(--ink);
+  font-family: var(--font-mono);
   font-size: 0.72rem;
-  font-weight: 600;
-  padding: 2px 6px;
+  font-weight: 700;
+  padding: 2px 6px 2px 5px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
   cursor: grab;
-  box-shadow: var(--shadow-sm);
   touch-action: none;
 }
 
 .week-block.week-block-dragging {
   cursor: grabbing;
-  opacity: 0.8;
+  opacity: 0.85;
   z-index: 5;
   box-shadow: var(--shadow-md);
 }
 
 /* Daily events in the hourly grid: click-to-edit only, not draggable (see
    the comment above this block's creation in week-grid.ts), so it gets a
-   plain pointer cursor instead of grab, plus a dashed inset ring to read as
+   plain pointer cursor instead of grab, plus a dashed pin-edge to read as
    "recurring" at a glance next to a solid one-off .week-block. */
 .week-block-daily {
   cursor: pointer;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
-  border: 1px dashed rgba(255, 255, 255, 0.5);
+  border-left-style: dashed;
 }
 
 /* Coarse-pointer (touch) devices skip drag entirely — see IS_COARSE_POINTER
@@ -573,29 +599,20 @@
   opacity: 0.45;
 }
 
-/* Current-time indicator: a thin line across today's column so the user
-   can eyeball how far off the next scheduled event is, whether or not any
-   events exist yet. Positioned in JS (top, in px, same HOUR_PX scale as
-   .week-block) and re-computed on an interval — see week-grid.ts. */
+/* Current-time indicator: a scanning line across today's column so the
+   operator can eyeball how far off the next scheduled event is, whether or
+   not any events exist yet — styled as an oscilloscope sweep (accent-
+   colored hairline + a mono time readout) rather than a red dot-and-badge.
+   Positioned in JS (top, in px, same HOUR_PX scale as .week-block) and
+   re-computed on an interval — see week-grid.ts. */
 .week-now-line {
   position: absolute;
   left: 0;
   right: 0;
   height: 0;
-  border-top: 2px solid var(--bad);
+  border-top: 2px solid var(--accent);
   z-index: 4;
   pointer-events: none;
-}
-
-.week-now-line::before {
-  content: "";
-  position: absolute;
-  left: -4px;
-  top: -4px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--bad);
 }
 
 .week-now-label {
@@ -603,13 +620,14 @@
   left: 6px;
   top: -8px;
   transform: translateY(-100%);
-  background: var(--bad);
-  color: #fff;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-mono);
   font-size: 0.65rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   padding: 1px 5px;
-  border-radius: 3px;
+  border-radius: 2px;
   white-space: nowrap;
 }
 
@@ -654,7 +672,6 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 18px;
-  box-shadow: var(--shadow-sm);
 }
 
 .cal-nav {
@@ -665,7 +682,9 @@
 }
 
 .cal-month-label {
-  font-size: 1.1rem;
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  font-weight: 700;
 }
 
 .cal-weekdays {
@@ -680,8 +699,6 @@
   font-size: 0.72rem;
   font-weight: 600;
   color: var(--ink-faint);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   padding-bottom: 4px;
 }
 
@@ -716,6 +733,7 @@
 }
 
 .cal-day-num {
+  font-family: var(--font-mono);
   font-size: 0.82rem;
   font-variant-numeric: tabular-nums;
   color: var(--ink-soft);
@@ -742,26 +760,30 @@
   align-items: center;
 }
 
+/* Pin dots are too small (13px) for a panel-strip treatment — the number
+   stays directly on the pin fill, but as white text with a dark outline
+   (text-shadow, not a solid color) rather than one hardcoded text color,
+   so it holds contrast against every pin hue including light ones like
+   cyan where solid white text fails WCAG AA. */
 .cal-marker {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 13px;
   height: 13px;
-  border-radius: 50%;
+  border-radius: 2px;
   flex-shrink: 0;
   color: #fff;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.85), 0 0 1px rgba(0, 0, 0, 0.85);
+  font-family: var(--font-mono);
   font-size: 0.56rem;
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
-/* Pin number inside the dot is the color-independent fallback for telling
-   pins apart — colorblind users (or anyone on a low-contrast display)
-   can't reliably distinguish 8 similar hues by color alone. */
 .cal-marker-recurring {
-  border-radius: 3px;
+  border-radius: 50%;
 }
 
 .cal-marker-disabled {
@@ -769,6 +791,7 @@
 }
 
 .cal-marker-more {
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   color: var(--ink-faint);
   font-weight: 600;
@@ -792,7 +815,6 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 18px;
-  box-shadow: var(--shadow-sm);
 }
 
 .list-heading {
@@ -845,7 +867,8 @@
 }
 
 .event-row-meta {
-  font-size: 0.76rem;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
   color: var(--ink-faint);
   font-variant-numeric: tabular-nums;
 }
@@ -855,6 +878,7 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 3px;
+  font-family: var(--font-mono);
   font-size: 0.76rem;
   color: var(--ink-soft);
   font-variant-numeric: tabular-nums;
@@ -873,10 +897,11 @@
 .event-row-badge {
   background: var(--accent);
   color: var(--accent-ink);
-  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
   font-weight: 700;
   padding: 1px 7px;
-  border-radius: 999px;
+  border-radius: 2px;
   white-space: nowrap;
 }
 
@@ -890,7 +915,7 @@
   gap: 4px;
   margin-left: 8px;
   padding: 0 6px;
-  border-radius: 999px;
+  border-radius: 2px;
   font-weight: 700;
   font-size: 0.68rem;
 }
@@ -904,8 +929,8 @@
 }
 
 .event-row-echo-on {
-  background: var(--ok-soft);
-  color: var(--ok);
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .event-row-echo-off {
@@ -932,7 +957,7 @@
   /* Darker + blurred, not just a thin tint — on a phone the drawer fills
      the whole screen, so a faint overlay leaves nothing behind it to read
      as "the app is still there, underneath a panel." */
-  background: rgba(10, 9, 7, 0.55);
+  background: rgba(3, 4, 4, 0.6);
   backdrop-filter: blur(2px);
   display: flex;
   justify-content: flex-end;
@@ -944,7 +969,8 @@
   max-width: 420px;
   height: 100%;
   background: var(--bg-raised);
-  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.25);
+  border-left: 1px solid var(--border-strong);
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.4);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -973,7 +999,7 @@
   width: 44px;
   height: 44px;
   min-height: unset;
-  border-radius: 50%;
+  border-radius: var(--radius-sm);
   color: var(--bad);
 }
 

@@ -36,8 +36,12 @@ cp -r "$BACKEND_DIR/app" "$OUT_DIR/backend/app"
 cp "$BACKEND_DIR/pyproject.toml" "$OUT_DIR/backend/"
 cp "$BACKEND_DIR/alembic.ini" "$OUT_DIR/backend/"
 cp "$BACKEND_DIR/README.md" "$OUT_DIR/backend/"
-[ -f "$BACKEND_DIR/.env" ] && cp "$BACKEND_DIR/.env" "$OUT_DIR/backend/.env" \
-    || cp "$BACKEND_DIR/.env.example" "$OUT_DIR/backend/.env.example"
+# Never ship the local .env: values like MESH_SERIAL_PORT are host-specific
+# (e.g. macOS /dev/cu.usbmodemXXXX won't exist on the Pi's Linux/ttyUSB0) and
+# SESSION_SECRET/AUTH_USERS shouldn't leak from a dev machine into a deploy
+# artifact. deploy_to_pi.sh already warns and tells you where to put a
+# Pi-specific .env.
+cp "$BACKEND_DIR/.env.example" "$OUT_DIR/backend/.env.example"
 # meshcore-cli's own pyproject pins the `meshcore` library version this repo
 # is validated against — the backend depends on that same library, so ship
 # the root pyproject too as a version reference for the Pi-side install.

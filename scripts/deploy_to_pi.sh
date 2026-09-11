@@ -29,9 +29,12 @@ if [ ! -d "$ARTIFACT_DIR" ]; then
 fi
 
 if [ ! -f "$ARTIFACT_DIR/backend/.env" ]; then
-    echo "!! $ARTIFACT_DIR/backend/.env is missing (only .env.example was staged)." >&2
-    echo "!! Fill in apps/backend/.env locally and re-run build_for_pi.sh, or scp it" >&2
-    echo "!! directly to $TARGET:$REMOTE_DIR/backend/.env before starting the service." >&2
+    echo "!! $ARTIFACT_DIR/backend/.env is missing (build_for_pi.sh only stages" >&2
+    echo "!! .env.example — a dev-machine .env, e.g. its MESH_SERIAL_PORT, would" >&2
+    echo "!! not be valid on the Pi). Fill in $ARTIFACT_DIR/backend/.env.example," >&2
+    echo "!! save it as $ARTIFACT_DIR/backend/.env, and re-run this script — or" >&2
+    echo "!! scp a Pi-specific one directly to $TARGET:$REMOTE_DIR/backend/.env" >&2
+    echo "!! before starting the service." >&2
 fi
 
 echo "==> Copying artifact to $TARGET:$REMOTE_DIR (sudo password may be prompted)"
@@ -58,6 +61,12 @@ id -u "$SERVICE_USER" >/dev/null 2>&1 || sudo useradd --system --home "$REMOTE_D
 # Serial port access requires membership in the dialout group.
 sudo usermod -aG dialout "$SERVICE_USER"
 
+# Must happen before the venv/pip/alembic steps below: the artifact was
+# scp'd in as the SSH login user, so $REMOTE_DIR/backend is only writable by
+# that user until this chown runs — `sudo -u mesh-scheduler python3 -m venv`
+# would otherwise fail with permission denied.
+sudo chown -R "$SERVICE_USER:$SERVICE_USER" "$REMOTE_DIR/backend"
+
 echo "  -- building backend venv (ARM wheels, built ON the Pi — do not copy a"
 echo "     venv built on a PC, it will not run on this CPU architecture)"
 echo "     This can take several minutes on a Pi 3 if any dependency (e.g."
@@ -73,7 +82,6 @@ sudo -u "$SERVICE_USER" .venv/bin/alembic upgrade head
 
 echo "  -- installing systemd unit"
 sudo cp "$REMOTE_DIR/systemd/mesh-scheduler-backend.service" /etc/systemd/system/
-sudo chown -R "$SERVICE_USER:$SERVICE_USER" "$REMOTE_DIR/backend"
 sudo systemctl daemon-reload
 sudo systemctl enable mesh-scheduler-backend
 sudo systemctl restart mesh-scheduler-backend
